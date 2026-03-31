@@ -1,0 +1,33 @@
+There are 2 vertex arrays, the sun and the globe.
+
+The function create sphere mesh:
+    has a custom datatype, Vertex, which in turn has a position, normal and texcoord and is used INTERNALLY.
+    
+    It loops through the latitude and longitude, calculating what each vertex's position, normal and texcoord shlould be.
+
+    It proceeds to then build the index buffer, turning the grid of sphere vertices into triangles, every 6 indices define
+    2 triangles.
+
+    The vertex position is then sent to attrib0, the normal attrib1 and the texcoord attrib2.
+
+The load texture function:
+    had to disable stbi_set_flip_vertically_on_load
+
+    Generates a mipmap from the texture
+
+    Does filtering, can do useGL_NEAREST, does AnisotropicFiltering
+
+    wrapps the texture
+
+The camera in display:
+    The projection plane very close to avoid clipping
+
+    I don't think I have to talk a lot about the camera controlls.
+
+The shadow pass in display:
+    1. Render into shadowmap instead of the screen
+    2. bind the height map so that the light gets to see the geometry that the camera sees.
+    3. draw the mesh into the depth texture
+
+The main pass in display:
+    
