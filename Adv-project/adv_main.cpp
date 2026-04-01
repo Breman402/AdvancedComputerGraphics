@@ -17,8 +17,7 @@
 #include "applicationIcon.hpp"
 #include "applicationIcon.hpp"
 #include "camera.hpp"
-#include "materials.hpp"
-//#include "textureGenerator.hpp"
+#include "createShadow.hpp"
 
 using namespace glm;
 
@@ -28,7 +27,7 @@ constexpr int gridRes = 128; // (128) number of quads per terrain tile, this det
 constexpr int terrainTileSeed = 1337; // random seed for terrain generation, this can be used in the shader to generate different noise patterns for different tiles
 constexpr int renderDistance = 20; // (20) how many terrain tiles to render in each direction from the camera, so renderDistance=1 means only the 8 tiles surrounding the camera and the one the camera is on will be rendered, renderDistance=2 means a 5x5 grid of tiles will be rendered etc.
 constexpr float terrainToGridWidthRatio = 0.4f; // (1.2)
-GUISettings guiSettings(materials);
+GUISettings guiSettings;
 
 // Structs
 
@@ -81,13 +80,16 @@ GLsizei terrainTileIndexCount = 0;
 mat4 lightViewMatrix;
 mat4 lightProjectionMatrix;
 glm::vec3 lightDirWorld = glm::vec3(0.0f, 1.0f, 0.0f);
-bool shadowsEnabled = false;
 
 // Sun related Globals
 GLuint sunProgram = 0;
 SphereMesh g_sunSphere;
 float sunDistance    = 1200.0f;       // how far from the terrain origin the sun is drawn
 float sunRadiusWorld = 70.0f;         // size of the visible sun in world units
+
+// Shadow related Globals
+GLuint shadowProgram = 0;
+ShadowMap shadowMap;
 
 bool showTexture = true;
 
@@ -245,10 +247,10 @@ void initialize()
         "../Adv-project/terrain.frag"
     );
 
-	// shadowProgram = labhelper::loadShaderProgram(
-	// 	"../lab7-project/shadowMap.vert",
-	// 	"../lab7-project/shadowMap.frag"
-	// );
+	shadowProgram = labhelper::loadShaderProgram(
+		"../Adv-project/shadowMap.vert",
+		"../Adv-project/shadowMap.frag"
+	);
 
     sunProgram = labhelper::loadShaderProgram(
         "../Adv-project/sun.vert",
@@ -256,7 +258,8 @@ void initialize()
     );
 
 	// Create shadow map
-	// shadowMap = createShadowMap(shadowMapSize);
+	shadowMap = createShadowMap(guiSettings.shadowMapSize);
+    guiSettings.shadowMap = &shadowMap; // So that the shadow map can be changeg later from the GUI
 
 	// Load the inital terrain textures:
     terrainWaterTexture = loadTexture("../Adv-project/textures/water.png");
@@ -326,14 +329,10 @@ void display()
         labhelper::setUniformSlow(terrainShader, "terrainSnowTex", 4);
 
         // Send material properties to the shader
-        waterMaterial.setMaterialUniform(terrainShader, "waterMaterial");
-        sandMaterial.setMaterialUniform(terrainShader, "sandMaterial");
-        grassMaterial.setMaterialUniform(terrainShader, "grassMaterial");
-        rockMaterial.setMaterialUniform(terrainShader, "rockMaterial");
-        snowMaterial.setMaterialUniform(terrainShader, "snowMaterial");
+        guiSettings.sendToShader(terrainShader);
 
         // Shadow & lighting parameters
-        labhelper::setUniformSlow(terrainShader, "shadowsEnabled", shadowsEnabled);
+        labhelper::setUniformSlow(terrainShader, "shadowsEnabled", guiSettings.shadowsEnabled);
         labhelper::setUniformSlow(terrainShader, "point_light_intensity_multiplier", guiSettings.lightIntensity);
 
         // Texture parameters

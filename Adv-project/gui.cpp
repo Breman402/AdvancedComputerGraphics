@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <string>
 #include "gui.hpp"
+#include "createShadow.hpp"
 
 void gui(GUISettings& settings)
 {
@@ -57,9 +58,16 @@ void gui(GUISettings& settings)
     }
 
     ImGui::Separator();
+    
+    ImGui::Text("Shadows:");
+    if (ImGui::Checkbox("Enable Shadows", &settings.shadowsEnabled))
+        markSettingsDirty();
+    if (ImGui::SliderInt("Shadow Map Size", &settings.shadowMapSize, 512, 8192))
+        updateShadowMap(*settings.shadowMap, settings.shadowMapSize);
+
+    ImGui::Separator();
     if (ImGui::Checkbox("Wireframe Mode", &settings.wireframeMode))
         markSettingsDirty();
-
     ImGui::End();
 }
 

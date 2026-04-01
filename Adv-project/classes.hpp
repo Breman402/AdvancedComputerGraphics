@@ -4,6 +4,7 @@
 #include <labhelper.h>
 #include <string>
 #include <vector>
+#include "createShadow.hpp"
 
 class Material
 {
@@ -30,17 +31,70 @@ public:
 class GUISettings
 {
 public:
-    float lightIntensity = 8.2f;
+    float lightIntensity = 5.3f;
+    
     float heightMapScale = 1.0f;
+    
     float terrainTextureScale = 0.1f;
     float blend = 0.02f;
+    
     float cameraMoveSpeed = 250.0f;
+    
     bool wireframeMode = false;
+    
     bool uploadGuard = false;
-    std::vector<Material*> materials;
+
+    bool shadowsEnabled = false;
+    int shadowMapSize = 4096;
+    ShadowMap *shadowMap = nullptr; // Pointer to the shadow map, need this to update the shadow map when the size is changed
+
+    std::vector<Material*> materials = { &waterMaterial, &sandMaterial, &grassMaterial, &rockMaterial, &snowMaterial };
+
+    Material waterMaterial{
+        glm::vec3(0.0f, 0.3f, 0.5f), // color
+        0.964f, // metalness
+        0.00f, // fresnel
+        256.0f, // shininess
+        glm::vec3(0.1f, 0.1f, 0.2f) // emission
+    };
+    Material sandMaterial{
+        glm::vec3(0.76f, 0.70f, 0.50f), // color
+        0.516f, // metalness
+        0.013f, // fresnel
+        43.202f, // shininess
+        glm::vec3(0.0f) // emission
+    };
+    Material grassMaterial{
+        glm::vec3(0.1f, 0.6f, 0.1f), // color
+        0.0f, // metalness
+        0.0f, // fresnel
+        32.0f, // shininess
+        glm::vec3(0.0f) // emission
+    };
+    Material rockMaterial{
+        glm::vec3(0.5f, 0.5f, 0.5f), // color
+        0.0f, // metalness
+        0.0f, // fresnel
+        8.24f, // shininess
+        glm::vec3(0.0f) // emission
+    };
+    Material snowMaterial{
+        glm::vec3(0.9f, 0.9f, 0.9f), // color
+        0.0f, // metalness
+        0.369f, // fresnel
+        1.0f, // shininess
+        glm::vec3(0.0f) // emission
+    };
 
     GUISettings() = default;
-    explicit GUISettings(const std::vector<Material*>& initialMaterials)
-        : materials(initialMaterials) {}
+
+    void sendToShader(const GLuint& terrainShader) const
+    {
+        waterMaterial.setMaterialUniform(terrainShader, "waterMaterial");
+        sandMaterial.setMaterialUniform(terrainShader, "sandMaterial");
+        grassMaterial.setMaterialUniform(terrainShader, "grassMaterial");
+        rockMaterial.setMaterialUniform(terrainShader, "rockMaterial");
+        snowMaterial.setMaterialUniform(terrainShader, "snowMaterial");
+    }
 
 };
