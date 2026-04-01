@@ -10,6 +10,7 @@
 #include <map>
 #include <vector>
 #include <cstdint>
+#include <cmath>
 
 #include "loadTexture.hpp"
 #include "sphereMesh.hpp"
@@ -80,6 +81,8 @@ GLsizei terrainTileIndexCount = 0;
 mat4 lightViewMatrix;
 mat4 lightProjectionMatrix;
 glm::vec3 lightDirWorld = glm::vec3(0.0f, 1.0f, 0.0f);
+float sunAzimuth = 0.0f;
+float sunElevation = glm::radians(45.0f);
 
 // Sun related Globals
 GLuint sunProgram = 0;
@@ -96,6 +99,63 @@ bool showTexture = true;
 
 // A sample square with information later passed to the GPU
 TerrainSquare sampleSquare;
+
+namespace
+{
+constexpr float kSunRotationSpeed = glm::radians(45.0f);
+constexpr float kMinSunElevation = glm::radians(2.0f);
+constexpr float kMaxSunElevation = glm::radians(89.0f);
+
+void syncLightDirectionFromSunAngles()
+{
+    const vec3 sunDirection = normalize(vec3(
+        cos(sunElevation) * sin(sunAzimuth),
+        sin(sunElevation),
+        -cos(sunElevation) * cos(sunAzimuth)
+    ));
+
+    lightDirWorld = -sunDirection;
+}
+
+void syncSunAnglesFromLightDirection()
+{
+    const vec3 sunDirection = normalize(-lightDirWorld);
+    sunElevation = glm::clamp(std::asin(sunDirection.y), kMinSunElevation, kMaxSunElevation);
+    sunAzimuth = std::atan2(sunDirection.x, -sunDirection.z);
+    syncLightDirectionFromSunAngles();
+}
+
+void updateSunFromKeyboard(float deltaTimeSeconds)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureKeyboard)
+    {
+        return;
+    }
+
+    const Uint8* keyboardState = SDL_GetKeyboardState(nullptr);
+    const float angleStep = kSunRotationSpeed * deltaTimeSeconds;
+
+    if (keyboardState[SDL_SCANCODE_LEFT])
+    {
+        sunAzimuth -= angleStep;
+    }
+    if (keyboardState[SDL_SCANCODE_RIGHT])
+    {
+        sunAzimuth += angleStep;
+    }
+    if (keyboardState[SDL_SCANCODE_UP])
+    {
+        sunElevation = glm::clamp(sunElevation + angleStep, kMinSunElevation, kMaxSunElevation);
+    }
+    if (keyboardState[SDL_SCANCODE_DOWN])
+    {
+        sunElevation = glm::clamp(sunElevation - angleStep, kMinSunElevation, kMaxSunElevation);
+    }
+
+    syncLightDirectionFromSunAngles();
+}
+}
 
 //----------------------------------------------------------------------------
 // Create a terrain tile mesh
@@ -238,6 +298,7 @@ void initialize()
     lightViewMatrix = mat4(1.0f);
     lightProjectionMatrix = mat4(1.0f);
     lightDirWorld = normalize(glm::vec3(-0.4f, -1.0f, -0.3f));
+    syncSunAnglesFromLightDirection();
 
     // This is just for setting an icon for the application window.
     setApplicationIcon(g_window, "../Adv-project/icons/earthIcon.bmp");
@@ -282,10 +343,33 @@ void display()
 {
     int w = 0, h = 0;
     SDL_GetWindowSize(g_window, &w, &h);
-    
+
     const float aspect = float(w) / float(h ? h : 1);
     const mat4 projection = perspective(radians(60.0f), aspect, 0.1f, 3000.0f);
-    
+
+    constexpr int terrainSquareSize = SQUARE_SIZE;
+    const int cameraGridX = static_cast<int>(std::floor(cameraPosition.x / float(terrainSquareSize)));
+    const int cameraGridZ = static_cast<int>(std::floor(cameraPosition.z / float(terrainSquareSize)));
+
+    // ---- Build Light view/projection matrix ----
+    const vec3 shadowTarget(
+        (cameraGridX + 0.5f) * terrainSquareSize,
+        0.0f,
+        (cameraGridZ + 0.5f) * terrainSquareSize
+    );
+
+    const float shadowDistance = 800.0f;
+    const vec3 lightPos = shadowTarget - normalize(lightDirWorld) * shadowDistance;
+
+    lightViewMatrix = lookAt(lightPos, shadowTarget, vec3(0.0f, 1.0f, 0.0f));
+
+    const float shadowExtent = 500.0f;
+    lightProjectionMatrix = ortho(
+        -shadowExtent, shadowExtent,
+        -shadowExtent, shadowExtent,
+        1.0f, 2000.0f
+    );
+
     // ---- Camera ----
     const float totalYaw = cameraYaw + viewYawOffset;
     const float totalPitch = clamp(cameraPitch + viewPitchOffset, radians(-89.0f), radians(89.0f));
@@ -299,21 +383,64 @@ void display()
 
     mat4 view = lookAt(glm::vec3(cameraPosition), glm::vec3(cameraPosition + F_rot), glm::vec3(U_rot));
 
-    mat4 model = mat4(1.0f);
-    mat4 mvp = projection * view * model;
+    // ------------------------------------------------------------------------
+    // Shadow pass
+    // ------------------------------------------------------------------------
+    glViewport(0, 0, shadowMap.width, shadowMap.height);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowMap.fbo);
+    glClear(GL_DEPTH_BUFFER_BIT);
 
-    // ---- Render the terrain ----
-    glViewport(0, 0, w, h);                             // Set the viewport to render the entire window
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the color and depth buffers
+    glUseProgram(shadowProgram);
+
+    labhelper::setUniformSlow(shadowProgram, "lightViewProj", lightProjectionMatrix * lightViewMatrix);
+    
+    if (!guiSettings.uploadGuard) {
+    labhelper::setUniformSlow(shadowProgram, "heightScale", guiSettings.heightMapScale);
+    labhelper::setUniformSlow(shadowProgram, "tileHeight", sampleSquare.height);
+    labhelper::setUniformSlow(shadowProgram, "tileSeed", terrainTileSeed);
+    }
+    
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(2.0f, 4.0f);
+
+    glBindVertexArray(terrainTileVao);
+
+    for (int dz = -renderDistance; dz <= renderDistance; ++dz)
+    {
+        for (int dx = -renderDistance; dx <= renderDistance; ++dx)
+        {
+            const int gridX = cameraGridX + dx;
+            const int gridZ = cameraGridZ + dz;
+
+            const vec3 tileCenter(
+                (gridX + 0.5f) * terrainSquareSize,
+                0.0f,
+                (gridZ + 0.5f) * terrainSquareSize
+            );
+
+            mat4 tileModel = translate(mat4(1.0f), tileCenter) *
+                             scale(mat4(1.0f), vec3(float(terrainSquareSize), 1.0f, float(terrainSquareSize)));
+
+            labhelper::setUniformSlow(shadowProgram, "modelMatrix", tileModel);
+
+            glDrawElements(GL_TRIANGLES, terrainTileIndexCount, GL_UNSIGNED_INT, 0);
+        }
+    }
+
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // ------------------------------------------------------------------------
+    // Main pass
+    // ------------------------------------------------------------------------
+    glViewport(0, 0, w, h);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUseProgram(terrainShader);
 
     if (!guiSettings.uploadGuard)
     {
-        // This is to ensure things are not needlessly re-uploaded. If some of the settings are changed in the GUI this will be set to false again
-        
-        // Tell the shader what texture to bind
-        glActiveTexture(GL_TEXTURE0); // Select what texture unit to bind the texture to.
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, terrainWaterTexture);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, terrainSandTexture);
@@ -323,32 +450,23 @@ void display()
         glBindTexture(GL_TEXTURE_2D, terrainRockTexture);
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, terrainSnowTexture);
-        glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_2D, shadowMap.depthTex);
-        
+
         labhelper::setUniformSlow(terrainShader, "terrainWaterTex", 0);
         labhelper::setUniformSlow(terrainShader, "terrainSandTex", 1);
         labhelper::setUniformSlow(terrainShader, "terrainGrassTex", 2);
         labhelper::setUniformSlow(terrainShader, "terrainRockTex", 3);
         labhelper::setUniformSlow(terrainShader, "terrainSnowTex", 4);
-        labhelper::setUniformSlow(terrainShader, "shadowMap", 5);
 
-        // Send material properties to the shader
         guiSettings.sendToShader(terrainShader);
 
-        // Shadow & lighting parameters
         labhelper::setUniformSlow(terrainShader, "shadowsEnabled", guiSettings.shadowsEnabled);
-        labhelper::setUniformSlow(terrainShader, "shadowMap", 5); // We will bind the shadow map to texture unit 5 in the render loop before drawing the terrain
         labhelper::setUniformSlow(terrainShader, "point_light_intensity_multiplier", guiSettings.lightIntensity);
 
-        // Texture parameters
         labhelper::setUniformSlow(terrainShader, "terrainTextureScale", guiSettings.terrainTextureScale);
         labhelper::setUniformSlow(terrainShader, "blend", guiSettings.blend);
 
-        // Wireframe mode, this is passed cause if wireframe mode is on, the texture should not be shown
         labhelper::setUniformSlow(terrainShader, "wireframeMode", guiSettings.wireframeMode);
 
-        // Terrain generation parameters
         labhelper::setUniformSlow(terrainShader, "heightScale", guiSettings.heightMapScale);
         labhelper::setUniformSlow(terrainShader, "tileWidth", sampleSquare.width);
         labhelper::setUniformSlow(terrainShader, "tileHeight", sampleSquare.height);
@@ -357,59 +475,56 @@ void display()
         guiSettings.uploadGuard = true;
     }
 
-    // Matrices
     labhelper::setUniformSlow(terrainShader, "lightViewProj", lightProjectionMatrix * lightViewMatrix);
-    
-    // Lighting
     labhelper::setUniformSlow(terrainShader, "lightDirWorld", lightDirWorld);
     labhelper::setUniformSlow(terrainShader, "cameraPosWorld", cameraPosition);
 
-    // Apply wireframe mode if enabled
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, shadowMap.depthTex);
+    labhelper::setUniformSlow(terrainShader, "shadowMap", 5);
+
     if (guiSettings.wireframeMode)
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
 
-    constexpr int terrainSquareSize = SQUARE_SIZE;
-    const int cameraGridX = static_cast<int>(std::floor(cameraPosition.x / float(terrainSquareSize)));
-    const int cameraGridZ = static_cast<int>(std::floor(cameraPosition.z / float(terrainSquareSize)));
     glBindVertexArray(terrainTileVao);
 
     for (int dz = -renderDistance; dz <= renderDistance; ++dz)
+    {
+        for (int dx = -renderDistance; dx <= renderDistance; ++dx)
         {
-            for (int dx = -renderDistance; dx <= renderDistance; ++dx)
-            {
-                const int gridX = cameraGridX + dx;
-                const int gridZ = cameraGridZ + dz;
+            const int gridX = cameraGridX + dx;
+            const int gridZ = cameraGridZ + dz;
 
-                const vec3 tileCenter(
-                    (gridX + 0.5f) * terrainSquareSize,
-                    0.0f,
-                    (gridZ + 0.5f) * terrainSquareSize
-                );
+            const vec3 tileCenter(
+                (gridX + 0.5f) * terrainSquareSize,
+                0.0f,
+                (gridZ + 0.5f) * terrainSquareSize
+            );
 
-                mat4 tileModel = translate(mat4(1.0f), tileCenter) *
-                                scale(mat4(1.0f), vec3(float(terrainSquareSize), 1.0f, float(terrainSquareSize)));
+            mat4 tileModel = translate(mat4(1.0f), tileCenter) *
+                             scale(mat4(1.0f), vec3(float(terrainSquareSize), 1.0f, float(terrainSquareSize)));
 
-                mat4 tileMvp = projection * view * tileModel;
+            mat4 tileMvp = projection * view * tileModel;
 
-                labhelper::setUniformSlow(terrainShader, "modelMatrix", tileModel);
-                labhelper::setUniformSlow(terrainShader, "modelViewProjectionMatrix", tileMvp);
+            labhelper::setUniformSlow(terrainShader, "modelMatrix", tileModel);
+            labhelper::setUniformSlow(terrainShader, "modelViewProjectionMatrix", tileMvp);
 
-                glDrawElements(GL_TRIANGLES, terrainTileIndexCount, GL_UNSIGNED_INT, 0);
-            }
+            glDrawElements(GL_TRIANGLES, terrainTileIndexCount, GL_UNSIGNED_INT, 0);
         }
+    }
 
-    // Restore normal polygon mode
     if (guiSettings.wireframeMode)
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
 
+    // ------------------------------------------------------------------------
     // Draw the Sun
+    // ------------------------------------------------------------------------
     glUseProgram(sunProgram);
 
-    // Position of the sun = light source position
     vec3 sunPosWorld = -normalize(lightDirWorld) * sunDistance;
 
     mat4 sunModel(1.0f);
@@ -419,12 +534,12 @@ void display()
     mat4 sunMvp = projection * view * sunModel;
     labhelper::setUniformSlow(sunProgram, "mvpMatrix", sunMvp);
     labhelper::setUniformSlow(sunProgram, "sunColor",
-                            vec3(1.0f, 1.0f, 0.8f) * guiSettings.lightIntensity);
+                              vec3(1.0f, 1.0f, 0.8f) * guiSettings.lightIntensity);
 
     glBindVertexArray(g_sunSphere.vao);
     glDrawElements(GL_TRIANGLES, g_sunSphere.indexCount, GL_UNSIGNED_INT, 0);
 
-    glBindVertexArray(0); // unbind
+    glBindVertexArray(0);
 }
 
 int main(int argc, char* argv[])
@@ -452,6 +567,7 @@ int main(int argc, char* argv[])
         }
 
         updateCamera(deltaTimeSeconds, guiSettings.cameraMoveSpeed);
+        updateSunFromKeyboard(deltaTimeSeconds);
 
         // Inform imgui of new frame
         ImGui_ImplSdlGL3_NewFrame(g_window);
