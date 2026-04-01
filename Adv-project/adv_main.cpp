@@ -259,7 +259,7 @@ void initialize()
 
 	// Create shadow map
 	shadowMap = createShadowMap(guiSettings.shadowMapSize);
-    guiSettings.shadowMap = &shadowMap; // So that the shadow map can be changeg later from the GUI
+    guiSettings.shadowMap = &shadowMap; // So that the shadow map can be changed later from the GUI
 
 	// Load the inital terrain textures:
     terrainWaterTexture = loadTexture("../Adv-project/textures/water.png");
@@ -307,32 +307,38 @@ void display()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the color and depth buffers
 
     glUseProgram(terrainShader);
-    // Tell the shader what texture to bind
-    glActiveTexture(GL_TEXTURE0); // Select what texture unit to bind the texture to.
-    glBindTexture(GL_TEXTURE_2D, terrainWaterTexture);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, terrainSandTexture);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, terrainGrassTexture);
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, terrainRockTexture);
-    glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_2D, terrainSnowTexture);
 
     if (!guiSettings.uploadGuard)
     {
         // This is to ensure things are not needlessly re-uploaded. If some of the settings are changed in the GUI this will be set to false again
+        
+        // Tell the shader what texture to bind
+        glActiveTexture(GL_TEXTURE0); // Select what texture unit to bind the texture to.
+        glBindTexture(GL_TEXTURE_2D, terrainWaterTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, terrainSandTexture);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, terrainGrassTexture);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, terrainRockTexture);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, terrainSnowTexture);
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D, shadowMap.depthTex);
+        
         labhelper::setUniformSlow(terrainShader, "terrainWaterTex", 0);
         labhelper::setUniformSlow(terrainShader, "terrainSandTex", 1);
         labhelper::setUniformSlow(terrainShader, "terrainGrassTex", 2);
         labhelper::setUniformSlow(terrainShader, "terrainRockTex", 3);
         labhelper::setUniformSlow(terrainShader, "terrainSnowTex", 4);
+        labhelper::setUniformSlow(terrainShader, "shadowMap", 5);
 
         // Send material properties to the shader
         guiSettings.sendToShader(terrainShader);
 
         // Shadow & lighting parameters
         labhelper::setUniformSlow(terrainShader, "shadowsEnabled", guiSettings.shadowsEnabled);
+        labhelper::setUniformSlow(terrainShader, "shadowMap", 5); // We will bind the shadow map to texture unit 5 in the render loop before drawing the terrain
         labhelper::setUniformSlow(terrainShader, "point_light_intensity_multiplier", guiSettings.lightIntensity);
 
         // Texture parameters
@@ -341,7 +347,6 @@ void display()
 
         // Wireframe mode, this is passed cause if wireframe mode is on, the texture should not be shown
         labhelper::setUniformSlow(terrainShader, "wireframeMode", guiSettings.wireframeMode);
-        //labhelper::setUniformSlow(terrainShader, "showTexture", showTexture);
 
         // Terrain generation parameters
         labhelper::setUniformSlow(terrainShader, "heightScale", guiSettings.heightMapScale);

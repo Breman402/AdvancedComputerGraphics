@@ -29,7 +29,7 @@ uniform float terrainTextureScale;
 uniform float blend;
 
 uniform sampler2D shadowMap;
-uniform bool shadowsEnabled = false;
+uniform bool shadowsEnabled;
 
 uniform vec3 lightDirWorld;
 uniform vec3 cameraPosWorld;
