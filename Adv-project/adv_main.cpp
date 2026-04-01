@@ -24,14 +24,11 @@ using namespace glm;
 
 // Settings
 #define SQUARE_SIZE 64 // 64
-float lightIntensity = 8.2f;
-float heightMapScale = 1.0f;
 constexpr int gridRes = 128; // (128) number of quads per terrain tile, this determines how detailed the terrain can be within a single tile
 constexpr int terrainTileSeed = 1337; // random seed for terrain generation, this can be used in the shader to generate different noise patterns for different tiles
 constexpr int renderDistance = 20; // (20) how many terrain tiles to render in each direction from the camera, so renderDistance=1 means only the 8 tiles surrounding the camera and the one the camera is on will be rendered, renderDistance=2 means a 5x5 grid of tiles will be rendered etc.
 constexpr float terrainToGridWidthRatio = 0.4f; // (1.2)
-float terrainTextureScale = 0.1f;
-float blend = 0.02f; // how wide the blending between terrain textures should be, this is used in the shader to determine the smoothness of the transitions between terrain textures, higher values means smoother transitions but also more blended textures and less distinct terrain types
+GUISettings guiSettings(materials);
 
 // Structs
 
@@ -72,7 +69,6 @@ struct TerrainVertex
 // Globals
 SDL_Window* g_window = nullptr;
 GLuint terrainShader = 0;
-bool uploadGuard = false;
 
 // Terrain
 GLuint terrainWaterTexture;GLuint terrainSandTexture;GLuint terrainGrassTexture;GLuint terrainRockTexture;GLuint terrainSnowTexture;GLuint terrainHeightTexture;
@@ -85,6 +81,7 @@ GLsizei terrainTileIndexCount = 0;
 mat4 lightViewMatrix;
 mat4 lightProjectionMatrix;
 glm::vec3 lightDirWorld = glm::vec3(0.0f, 1.0f, 0.0f);
+bool shadowsEnabled = false;
 
 // Sun related Globals
 GLuint sunProgram = 0;
@@ -92,8 +89,6 @@ SphereMesh g_sunSphere;
 float sunDistance    = 1200.0f;       // how far from the terrain origin the sun is drawn
 float sunRadiusWorld = 70.0f;         // size of the visible sun in world units
 
-// Wireframe mode
-bool wireframeMode = false;
 bool showTexture = true;
 
 
@@ -321,7 +316,7 @@ void display()
     glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, terrainSnowTexture);
 
-    if (!uploadGuard)
+    if (!guiSettings.uploadGuard)
     {
         // This is to ensure things are not needlessly re-uploaded. If some of the settings are changed in the GUI this will be set to false again
         labhelper::setUniformSlow(terrainShader, "terrainWaterTex", 0);
@@ -338,24 +333,24 @@ void display()
         snowMaterial.setMaterialUniform(terrainShader, "snowMaterial");
 
         // Shadow & lighting parameters
-        labhelper::setUniformSlow(terrainShader, "shadowsEnabled", false);
-        labhelper::setUniformSlow(terrainShader, "point_light_intensity_multiplier", lightIntensity);
+        labhelper::setUniformSlow(terrainShader, "shadowsEnabled", shadowsEnabled);
+        labhelper::setUniformSlow(terrainShader, "point_light_intensity_multiplier", guiSettings.lightIntensity);
 
         // Texture parameters
-        labhelper::setUniformSlow(terrainShader, "terrainTextureScale", terrainTextureScale);
-        labhelper::setUniformSlow(terrainShader, "blend", blend);
+        labhelper::setUniformSlow(terrainShader, "terrainTextureScale", guiSettings.terrainTextureScale);
+        labhelper::setUniformSlow(terrainShader, "blend", guiSettings.blend);
 
         // Wireframe mode, this is passed cause if wireframe mode is on, the texture should not be shown
-        labhelper::setUniformSlow(terrainShader, "wireframeMode", wireframeMode);
-        labhelper::setUniformSlow(terrainShader, "showTexture", showTexture);
+        labhelper::setUniformSlow(terrainShader, "wireframeMode", guiSettings.wireframeMode);
+        //labhelper::setUniformSlow(terrainShader, "showTexture", showTexture);
 
         // Terrain generation parameters
-        labhelper::setUniformSlow(terrainShader, "heightScale", heightMapScale);
+        labhelper::setUniformSlow(terrainShader, "heightScale", guiSettings.heightMapScale);
         labhelper::setUniformSlow(terrainShader, "tileWidth", sampleSquare.width);
         labhelper::setUniformSlow(terrainShader, "tileHeight", sampleSquare.height);
         labhelper::setUniformSlow(terrainShader, "tileSeed", terrainTileSeed);
 
-        uploadGuard = true;
+        guiSettings.uploadGuard = true;
     }
 
     // Matrices
@@ -366,7 +361,7 @@ void display()
     labhelper::setUniformSlow(terrainShader, "cameraPosWorld", cameraPosition);
 
     // Apply wireframe mode if enabled
-    if (wireframeMode)
+    if (guiSettings.wireframeMode)
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
@@ -402,7 +397,7 @@ void display()
         }
 
     // Restore normal polygon mode
-    if (wireframeMode)
+    if (guiSettings.wireframeMode)
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
@@ -420,7 +415,7 @@ void display()
     mat4 sunMvp = projection * view * sunModel;
     labhelper::setUniformSlow(sunProgram, "mvpMatrix", sunMvp);
     labhelper::setUniformSlow(sunProgram, "sunColor",
-                            vec3(1.0f, 1.0f, 0.8f) * lightIntensity);
+                            vec3(1.0f, 1.0f, 0.8f) * guiSettings.lightIntensity);
 
     glBindVertexArray(g_sunSphere.vao);
     glDrawElements(GL_TRIANGLES, g_sunSphere.indexCount, GL_UNSIGNED_INT, 0);
@@ -452,7 +447,7 @@ int main(int argc, char* argv[])
             handleSDLEvents(event, stopRendering);
         }
 
-        updateCamera(deltaTimeSeconds);
+        updateCamera(deltaTimeSeconds, guiSettings.cameraMoveSpeed);
 
         // Inform imgui of new frame
         ImGui_ImplSdlGL3_NewFrame(g_window);
@@ -460,7 +455,7 @@ int main(int argc, char* argv[])
         display();
 
         // Render overlay GUI.
-        gui(&lightIntensity, &heightMapScale, &terrainTextureScale, &blend, &cameraMoveSpeed, &materials, &wireframeMode, &uploadGuard);
+        gui(guiSettings);
 
         // Render the GUI.
         ImGui::Render();

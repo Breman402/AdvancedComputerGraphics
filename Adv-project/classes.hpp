@@ -2,6 +2,8 @@
 
 #include <glm/glm.hpp>
 #include <labhelper.h>
+#include <string>
+#include <vector>
 
 class Material
 {
@@ -23,4 +25,22 @@ public:
         labhelper::setUniformSlow(shaderProgram, (uniformName + ".shininess").c_str(), shininess);
         labhelper::setUniformSlow(shaderProgram, (uniformName + ".emission").c_str(), emission);
     }
+};
+
+class GUISettings
+{
+public:
+    float lightIntensity = 8.2f;
+    float heightMapScale = 1.0f;
+    float terrainTextureScale = 0.1f;
+    float blend = 0.02f;
+    float cameraMoveSpeed = 250.0f;
+    bool wireframeMode = false;
+    bool uploadGuard = false;
+    std::vector<Material*> materials;
+
+    GUISettings() = default;
+    explicit GUISettings(const std::vector<Material*>& initialMaterials)
+        : materials(initialMaterials) {}
+
 };

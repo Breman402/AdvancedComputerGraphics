@@ -24,6 +24,7 @@ add_executable ( ${PROJECT_NAME}
     loadTexture.cpp
     #createShadow.cpp
     gui.cpp
+    materials.cpp
     applicationIcon.cpp
     sphereMesh.cpp
     camera.cpp
