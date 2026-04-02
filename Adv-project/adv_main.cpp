@@ -18,7 +18,7 @@
 #include "sphereMesh.hpp"
 #include "gui.hpp"
 #include "applicationIcon.hpp"
-#include "applicationIcon.hpp"
+
 #include "camera.hpp"
 #include "createShadow.hpp"
 #include "sun.hpp"
@@ -59,7 +59,7 @@ enum class TerrainTextureType : GLuint
 };
 
 /**
- * @brief A struct representing a single terrain vertex, its postion, its normal and a texture coordinate.
+ * @brief A struct representing a single terrain vertex, its position, its normal and a texture coordinate.
  */
 struct TerrainVertex
 {
@@ -391,7 +391,7 @@ void display()
         labhelper::setUniformSlow(terrainShader, "blend", guiSettings.blend);
         labhelper::setUniformSlow(terrainShader, "wireframeMode", guiSettings.wireframeMode);
         labhelper::setUniformSlow(terrainShader, "showTexture", 1);
-        labhelper::setUniformSlow(terrainShader, "wireframeMode", guiSettings.wireframeMode);
+
 
         labhelper::setUniformSlow(terrainShader, "heightScale", guiSettings.heightMapScale);
         labhelper::setUniformSlow(terrainShader, "tileWidth", sampleSquare.width);
