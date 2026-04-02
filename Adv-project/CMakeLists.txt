@@ -27,6 +27,7 @@ add_executable ( ${PROJECT_NAME}
     applicationIcon.cpp
     sphereMesh.cpp
     camera.cpp
+    sun.cpp
     ${SHADERS}
     ${TEXTURES}
 )

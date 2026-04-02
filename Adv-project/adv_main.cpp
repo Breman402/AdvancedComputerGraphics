@@ -10,7 +10,9 @@
 #include <map>
 #include <vector>
 #include <cstdint>
+#include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "loadTexture.hpp"
 #include "sphereMesh.hpp"
@@ -19,6 +21,7 @@
 #include "applicationIcon.hpp"
 #include "camera.hpp"
 #include "createShadow.hpp"
+#include "sun.hpp"
 
 using namespace glm;
 
@@ -81,14 +84,10 @@ GLsizei terrainTileIndexCount = 0;
 mat4 lightViewMatrix;
 mat4 lightProjectionMatrix;
 glm::vec3 lightDirWorld = glm::vec3(0.0f, 1.0f, 0.0f);
-float sunAzimuth = 0.0f;
-float sunElevation = glm::radians(45.0f);
 
 // Sun related Globals
 GLuint sunProgram = 0;
 SphereMesh g_sunSphere;
-float sunDistance    = 1200.0f;       // how far from the terrain origin the sun is drawn
-float sunRadiusWorld = 70.0f;         // size of the visible sun in world units
 
 // Shadow related Globals
 GLuint shadowProgram = 0;
@@ -99,63 +98,6 @@ bool showTexture = true;
 
 // A sample square with information later passed to the GPU
 TerrainSquare sampleSquare;
-
-namespace
-{
-constexpr float kSunRotationSpeed = glm::radians(45.0f);
-constexpr float kMinSunElevation = glm::radians(2.0f);
-constexpr float kMaxSunElevation = glm::radians(89.0f);
-
-void syncLightDirectionFromSunAngles()
-{
-    const vec3 sunDirection = normalize(vec3(
-        cos(sunElevation) * sin(sunAzimuth),
-        sin(sunElevation),
-        -cos(sunElevation) * cos(sunAzimuth)
-    ));
-
-    lightDirWorld = -sunDirection;
-}
-
-void syncSunAnglesFromLightDirection()
-{
-    const vec3 sunDirection = normalize(-lightDirWorld);
-    sunElevation = glm::clamp(std::asin(sunDirection.y), kMinSunElevation, kMaxSunElevation);
-    sunAzimuth = std::atan2(sunDirection.x, -sunDirection.z);
-    syncLightDirectionFromSunAngles();
-}
-
-void updateSunFromKeyboard(float deltaTimeSeconds)
-{
-    ImGuiIO& io = ImGui::GetIO();
-    if (io.WantCaptureKeyboard)
-    {
-        return;
-    }
-
-    const Uint8* keyboardState = SDL_GetKeyboardState(nullptr);
-    const float angleStep = kSunRotationSpeed * deltaTimeSeconds;
-
-    if (keyboardState[SDL_SCANCODE_LEFT])
-    {
-        sunAzimuth -= angleStep;
-    }
-    if (keyboardState[SDL_SCANCODE_RIGHT])
-    {
-        sunAzimuth += angleStep;
-    }
-    if (keyboardState[SDL_SCANCODE_UP])
-    {
-        sunElevation = glm::clamp(sunElevation + angleStep, kMinSunElevation, kMaxSunElevation);
-    }
-    if (keyboardState[SDL_SCANCODE_DOWN])
-    {
-        sunElevation = glm::clamp(sunElevation - angleStep, kMinSunElevation, kMaxSunElevation);
-    }
-
-    syncLightDirectionFromSunAngles();
-}
-}
 
 //----------------------------------------------------------------------------
 // Create a terrain tile mesh
@@ -294,11 +236,10 @@ void initialize()
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // black background
 
-    // Start with a valid default until the shadow pass is implemented.
     lightViewMatrix = mat4(1.0f);
     lightProjectionMatrix = mat4(1.0f);
     lightDirWorld = normalize(glm::vec3(-0.4f, -1.0f, -0.3f));
-    syncSunAnglesFromLightDirection();
+    syncSunCycleFromLightDirection(lightDirWorld, guiSettings.sunTimeOfDayAngle);
 
     // This is just for setting an icon for the application window.
     setApplicationIcon(g_window, "../Adv-project/icons/earthIcon.bmp");
@@ -350,25 +291,7 @@ void display()
     constexpr int terrainSquareSize = SQUARE_SIZE;
     const int cameraGridX = static_cast<int>(std::floor(cameraPosition.x / float(terrainSquareSize)));
     const int cameraGridZ = static_cast<int>(std::floor(cameraPosition.z / float(terrainSquareSize)));
-
-    // ---- Build Light view/projection matrix ----
-    const vec3 shadowTarget(
-        (cameraGridX + 0.5f) * terrainSquareSize,
-        0.0f,
-        (cameraGridZ + 0.5f) * terrainSquareSize
-    );
-
-    const float shadowDistance = 800.0f;
-    const vec3 lightPos = shadowTarget - normalize(lightDirWorld) * shadowDistance;
-
-    lightViewMatrix = lookAt(lightPos, shadowTarget, vec3(0.0f, 1.0f, 0.0f));
-
-    const float shadowExtent = 500.0f;
-    lightProjectionMatrix = ortho(
-        -shadowExtent, shadowExtent,
-        -shadowExtent, shadowExtent,
-        1.0f, 2000.0f
-    );
+    updateShadowMatrices(cameraGridX, cameraGridZ, terrainSquareSize, renderDistance, sampleSquare.height, lightDirWorld, lightViewMatrix, lightProjectionMatrix);
 
     // ---- Camera ----
     const float totalYaw = cameraYaw + viewYawOffset;
@@ -386,6 +309,7 @@ void display()
     // ------------------------------------------------------------------------
     // Shadow pass
     // ------------------------------------------------------------------------
+    glViewport(0, 0, shadowMap.width, shadowMap.height);
     glViewport(0, 0, shadowMap.width, shadowMap.height);
     glBindFramebuffer(GL_FRAMEBUFFER, shadowMap.fbo);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -525,11 +449,11 @@ void display()
     // ------------------------------------------------------------------------
     glUseProgram(sunProgram);
 
-    vec3 sunPosWorld = -normalize(lightDirWorld) * sunDistance;
+    vec3 sunPosWorld = cameraPosition - normalize(lightDirWorld) * guiSettings.sunDistance;
 
     mat4 sunModel(1.0f);
     sunModel = translate(sunModel, sunPosWorld);
-    sunModel = scale(sunModel, vec3(sunRadiusWorld));
+    sunModel = scale(sunModel, vec3(guiSettings.sunRadiusWorld));
 
     mat4 sunMvp = projection * view * sunModel;
     labhelper::setUniformSlow(sunProgram, "mvpMatrix", sunMvp);
@@ -567,7 +491,7 @@ int main(int argc, char* argv[])
         }
 
         updateCamera(deltaTimeSeconds, guiSettings.cameraMoveSpeed);
-        updateSunFromKeyboard(deltaTimeSeconds);
+        updateSunFromKeyboard(deltaTimeSeconds, lightDirWorld, guiSettings.sunTimeOfDayAngle);
 
         // Inform imgui of new frame
         ImGui_ImplSdlGL3_NewFrame(g_window);

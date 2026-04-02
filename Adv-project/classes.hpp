@@ -48,6 +48,10 @@ public:
     int shadowMapSize = 4096;
     ShadowMap *shadowMap = nullptr; // Pointer to the shadow map, need this to update the shadow map when the size is changed
 
+    float sunTimeOfDayAngle = 0.0f;
+    float sunDistance    = 1200.0f;       // how far from the camera the sun is drawn
+    float sunRadiusWorld = 70.0f;         // size of the visible sun in world units
+
     std::vector<Material*> materials = { &waterMaterial, &sandMaterial, &grassMaterial, &rockMaterial, &snowMaterial };
 
     Material waterMaterial{

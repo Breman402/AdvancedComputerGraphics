@@ -66,6 +66,12 @@ void gui(GUISettings& settings)
         updateShadowMap(*settings.shadowMap, settings.shadowMapSize);
 
     ImGui::Separator();
+    ImGui::Text("Sun:");
+    ImGui::Value("Time of Day Angle", settings.sunTimeOfDayAngle);
+    ImGui::SliderFloat("Sun Distance", &settings.sunDistance, 100.0f, 5000.0f);
+    ImGui::SliderFloat("Sun Radius World", &settings.sunRadiusWorld, 1.0f, 200.0f);
+
+    ImGui::Separator();
     if (ImGui::Checkbox("Wireframe Mode", &settings.wireframeMode))
         markSettingsDirty();
     ImGui::End();
