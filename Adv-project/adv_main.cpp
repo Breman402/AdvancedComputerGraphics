@@ -310,7 +310,7 @@ void display()
     // Shadow pass
     // ------------------------------------------------------------------------
     glViewport(0, 0, shadowMap.width, shadowMap.height);
-    glViewport(0, 0, shadowMap.width, shadowMap.height);
+
     glBindFramebuffer(GL_FRAMEBUFFER, shadowMap.fbo);
     glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -319,9 +319,10 @@ void display()
     labhelper::setUniformSlow(shadowProgram, "lightViewProj", lightProjectionMatrix * lightViewMatrix);
     
     if (!guiSettings.uploadGuard) {
-    labhelper::setUniformSlow(shadowProgram, "heightScale", guiSettings.heightMapScale);
-    labhelper::setUniformSlow(shadowProgram, "tileHeight", sampleSquare.height);
-    labhelper::setUniformSlow(shadowProgram, "tileSeed", terrainTileSeed);
+        labhelper::setUniformSlow(shadowProgram, "heightScale", guiSettings.heightMapScale);
+        labhelper::setUniformSlow(shadowProgram, "tileHeight", sampleSquare.height);
+        labhelper::setUniformSlow(shadowProgram, "tileWidth", sampleSquare.width);
+        labhelper::setUniformSlow(shadowProgram, "tileSeed", terrainTileSeed);
     }
     
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -388,7 +389,8 @@ void display()
 
         labhelper::setUniformSlow(terrainShader, "terrainTextureScale", guiSettings.terrainTextureScale);
         labhelper::setUniformSlow(terrainShader, "blend", guiSettings.blend);
-
+        labhelper::setUniformSlow(terrainShader, "wireframeMode", guiSettings.wireframeMode);
+        labhelper::setUniformSlow(terrainShader, "showTexture", 1);
         labhelper::setUniformSlow(terrainShader, "wireframeMode", guiSettings.wireframeMode);
 
         labhelper::setUniformSlow(terrainShader, "heightScale", guiSettings.heightMapScale);
