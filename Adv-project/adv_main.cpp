@@ -47,18 +47,6 @@ struct TerrainSquare
 };
 
 /**
- * @brief An enum representing the terrain texture to be used.
- */
-enum class TerrainTextureType : GLuint
-{
-    Water,
-    Sand,
-    Grass,
-    Rock,
-    Snow
-};
-
-/**
  * @brief A struct representing a single terrain vertex, its position, its normal and a texture coordinate.
  */
 struct TerrainVertex
@@ -66,7 +54,6 @@ struct TerrainVertex
     glm::vec3 position;
     glm::vec3 normal;
     vec2 texcoord;
-    TerrainTextureType textureType;
 };
 
 // Globals
@@ -88,6 +75,12 @@ glm::vec3 lightDirWorld = glm::vec3(0.0f, 1.0f, 0.0f);
 // Sun related Globals
 GLuint sunProgram = 0;
 SphereMesh g_sunSphere;
+
+// Sky related Globals
+bool skyUploadGuard = false;
+GLuint skyDayTimeTexture; GLuint skyNightTimeTexture; GLuint skyDawnTexture; GLuint skyDuskTexture;
+GLuint skyProgram = 0;
+SphereMesh g_skySphere;
 
 // Shadow related Globals
 GLuint shadowProgram = 0;
@@ -127,8 +120,6 @@ void createTerrainTileMesh()
             vertex.position = glm::vec3(u - 0.5f, 0.0f, v - 0.5f);
             vertex.normal   = glm::vec3(0.0f, 1.0f, 0.0f);
             vertex.texcoord = glm::vec2(u, v);
-            vertex.textureType = TerrainTextureType::Grass; // placeholder
-
             vertices.push_back(vertex);
         }
     }
@@ -233,7 +224,9 @@ void initialize()
         std::exit(EXIT_FAILURE);
     }
 
+    // OpenGL settings
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // black background
 
     lightViewMatrix = mat4(1.0f);
@@ -259,6 +252,11 @@ void initialize()
         "../Adv-project/sun.frag"
     );
 
+    skyProgram = labhelper::loadShaderProgram(
+        "../Adv-project/sun.vert",
+        "../Adv-project/sun.frag"
+    );
+
 	// Create shadow map
 	shadowMap = createShadowMap(guiSettings.shadowMapSize);
     guiSettings.shadowMap = &shadowMap; // So that the shadow map can be changed later from the GUI
@@ -270,6 +268,12 @@ void initialize()
     terrainRockTexture = loadTexture("../Adv-project/textures/rock.png");
     terrainSnowTexture = loadTexture("../Adv-project/textures/snow.png");
 
+    // Load the skybox textures
+    skyDayTimeTexture = loadTexture("../Adv-project/textures/skyDayTime.png");
+    skyNightTimeTexture = loadTexture("../Adv-project/textures/skyNightTime.png");
+    skyDawnTexture = loadTexture("../Adv-project/textures/skyDawnTime.png");
+    skyDuskTexture = loadTexture("../Adv-project/textures/skyDuskTime.png");
+
     // Generate the terrain tile mesh, this will be used for all terrain tiles and the vertex shader will displace it based on the world position of the tile and the procedural height function
     createTerrainTileMesh();
 
@@ -278,6 +282,10 @@ void initialize()
 
     // Spawn the camera above the middle tile so the terrain is clearly in view on frame one.
     cameraPosition = glm::vec3(256.0f, 160.0f, 420.0f);
+
+    // Create the skybox
+    g_skySphere = createSphereMesh(2000.0f, 50, 50);
+
 }
 
 void display()
@@ -464,6 +472,46 @@ void display()
 
     glBindVertexArray(g_sunSphere.vao);
     glDrawElements(GL_TRIANGLES, g_sunSphere.indexCount, GL_UNSIGNED_INT, 0);
+
+    // ------------------------------------------------------------------------
+    // Draw the skybox
+    // ------------------------------------------------------------------------
+    glUseProgram(skyProgram); // We can use the same shader as the sun, it just needs a color and an mvp
+
+    if (!skyUploadGuard) {
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_2D, skyDayTimeTexture);
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, skyNightTimeTexture);
+        glActiveTexture(GL_TEXTURE8);
+        glBindTexture(GL_TEXTURE_2D, skyDawnTexture);
+        glActiveTexture(GL_TEXTURE9);
+        glBindTexture(GL_TEXTURE_2D, skyDuskTexture);
+
+
+        labhelper::setUniformSlow(skyProgram, "skyDayTimeTexture", 6);
+        labhelper::setUniformSlow(skyProgram, "skyNightTimeTexture", 7);
+        labhelper::setUniformSlow(skyProgram, "skyDawnTexture", 8);
+        labhelper::setUniformSlow(skyProgram, "skyDuskTexture", 9);
+
+        labhelper::setUniformSlow(skyProgram, "hasSkyTextures", true);
+        skyUploadGuard = true;
+    }
+
+    vec3 skyPosWorld = cameraPosition; // The skybox should always be centered on the camera
+
+    mat4 skyModel(1.0f);
+    skyModel = translate(skyModel, skyPosWorld);
+
+    mat4 skyMvp = projection * view * skyModel;
+    labhelper::setUniformSlow(skyProgram, "mvpMatrix", skyMvp);
+    labhelper::setUniformSlow(skyProgram, "sunTimeOfDayAngle", guiSettings.sunTimeOfDayAngle);
+
+    glBindVertexArray(g_skySphere.vao);
+
+    glDisable(GL_CULL_FACE); // Disable backface culling for the skybox so we can see the inside of the sphere
+    glDrawElements(GL_TRIANGLES, g_skySphere.indexCount, GL_UNSIGNED_INT, 0);
+    glEnable(GL_CULL_FACE);
 
     glBindVertexArray(0);
 }
