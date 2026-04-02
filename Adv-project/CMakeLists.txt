@@ -22,11 +22,12 @@ source_group("Shaders" FILES ${SHADERS})
 add_executable ( ${PROJECT_NAME}
     adv_main.cpp
     loadTexture.cpp
-    #createShadow.cpp
+    createShadow.cpp
     gui.cpp
     applicationIcon.cpp
     sphereMesh.cpp
     camera.cpp
+    sun.cpp
     ${SHADERS}
     ${TEXTURES}
 )

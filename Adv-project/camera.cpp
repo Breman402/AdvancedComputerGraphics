@@ -12,7 +12,6 @@ float cameraYaw = 0.0f;
 float cameraPitch = 0.0f;
 float viewYawOffset = 0.0f;
 float viewPitchOffset = 0.0f;
-float cameraMoveSpeed = 250.0f;
 glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, 3.0f);
 
 namespace
@@ -149,13 +148,13 @@ void handleSDLEvents(const SDL_Event& event, bool& stopRendering)
     }
 }
 
-void updateCamera(float deltaTimeSeconds)
+void updateCamera(float deltaTimeSeconds, float moveSpeedUnitsPerSecond)
 {
     const Uint8* keyboardState = SDL_GetKeyboardState(nullptr);
     vec3 moveForward, moveRight, worldUp;
     computeCameraBasis(moveForward, moveRight, worldUp);
 
-    const float moveSpeed = cameraMoveSpeed * deltaTimeSeconds;
+    const float moveSpeed = moveSpeedUnitsPerSecond * deltaTimeSeconds;
 
     if (keyboardState[SDL_SCANCODE_W])
     {
