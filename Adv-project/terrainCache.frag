@@ -1,0 +1,103 @@
+#version 420 core
+
+layout(location = 0) out float outHeight;
+layout(location = 1) out vec2 outNormalXZ;
+
+uniform vec3 terrainCacheOriginWorld;
+uniform float terrainVertexSpacing;
+uniform float heightScale;
+uniform float tileHeight;
+uniform int tileSeed;
+
+// -----------------------------------------------------------------------------
+// Pseudo-random hash
+// -----------------------------------------------------------------------------
+float hash(vec2 p)
+{
+    p += vec2(float(tileSeed) * 0.1234, float(tileSeed) * 0.5678);
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+// -----------------------------------------------------------------------------
+// Smooth value noise
+// -----------------------------------------------------------------------------
+float valueNoise(vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(
+        mix(a, b, u.x),
+        mix(c, d, u.x),
+        u.y
+    );
+}
+
+
+// -----------------------------------------------------------------------------
+// Fractal Brownian Motion
+// -----------------------------------------------------------------------------
+float fbm(vec2 p)
+{
+    float sum = 0.0;
+    float amplitude = 0.5;
+    float frequency = 1.0;
+
+    for (int i = 0; i < 5; ++i)
+    {
+        sum += amplitude * valueNoise(p * frequency);
+        frequency *= 2.0;
+        amplitude *= 0.5;
+    }
+
+    return sum;
+}
+
+// -----------------------------------------------------------------------------
+// Terrain height
+// heightScale = user multiplier
+// tileHeight  = hard max
+// final result is clamped to [0, tileHeight]
+// -----------------------------------------------------------------------------
+float getTerrainHeight(vec2 worldXZ)
+{
+    const float noiseScale = 0.03;
+
+    float h = fbm(worldXZ * noiseScale);
+    h = smoothstep(0.2, 0.8, h);
+    h = clamp(h * heightScale, 0.0, 1.0);
+
+    return h * tileHeight;
+}
+
+void main()
+{
+    // Get the texel coordinate and convert to world space
+    ivec2 texelCoord = ivec2(gl_FragCoord.xy);
+    vec2 worldXZ = terrainCacheOriginWorld.xz + vec2(texelCoord) * terrainVertexSpacing;
+
+    // Sample height at center and neighboring points for normal calculation
+    float height = getTerrainHeight(worldXZ);
+    float hL = getTerrainHeight(worldXZ + vec2(-terrainVertexSpacing, 0.0));
+    float hR = getTerrainHeight(worldXZ + vec2( terrainVertexSpacing, 0.0));
+    float hD = getTerrainHeight(worldXZ + vec2(0.0, -terrainVertexSpacing));
+    float hU = getTerrainHeight(worldXZ + vec2(0.0,  terrainVertexSpacing));
+
+    // Compute tangent vectors using finite differences
+    vec3 dx = vec3(2.0 * terrainVertexSpacing, hR - hL, 0.0);
+    vec3 dz = vec3(0.0, hU - hD, 2.0 * terrainVertexSpacing);
+    
+    // Calculate surface normal from cross product
+    vec3 worldNormal = normalize(cross(dz, dx));
+
+    // Output height and normal XZ components to texture
+    outHeight = height;
+    outNormalXZ = worldNormal.xz;
+}
