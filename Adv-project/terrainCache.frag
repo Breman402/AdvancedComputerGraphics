@@ -79,25 +79,17 @@ float getTerrainHeight(vec2 worldXZ)
 
 void main()
 {
-    // Get the texel coordinate and convert to world space
     ivec2 texelCoord = ivec2(gl_FragCoord.xy);
     vec2 worldXZ = terrainCacheOriginWorld.xz + vec2(texelCoord) * terrainVertexSpacing;
 
-    // Sample height at center and neighboring points for normal calculation
     float height = getTerrainHeight(worldXZ);
-    float hL = getTerrainHeight(worldXZ + vec2(-terrainVertexSpacing, 0.0));
-    float hR = getTerrainHeight(worldXZ + vec2( terrainVertexSpacing, 0.0));
-    float hD = getTerrainHeight(worldXZ + vec2(0.0, -terrainVertexSpacing));
-    float hU = getTerrainHeight(worldXZ + vec2(0.0,  terrainVertexSpacing));
 
-    // Compute tangent vectors using finite differences
-    vec3 dx = vec3(2.0 * terrainVertexSpacing, hR - hL, 0.0);
-    vec3 dz = vec3(0.0, hU - hD, 2.0 * terrainVertexSpacing);
-    
-    // Calculate surface normal from cross product
+    vec3 worldPos = vec3(worldXZ.x, height, worldXZ.y);
+
+    vec3 dx = dFdx(worldPos);
+    vec3 dz = dFdy(worldPos);
     vec3 worldNormal = normalize(cross(dz, dx));
 
-    // Output height and normal XZ components to texture
     outHeight = height;
     outNormalXZ = worldNormal.xz;
 }
