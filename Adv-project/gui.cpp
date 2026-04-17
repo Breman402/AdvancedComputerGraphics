@@ -72,6 +72,19 @@ void gui(GUISettings& settings)
     ImGui::SliderFloat("Sun Radius World", &settings.sunRadiusWorld, 1.0f, 200.0f);
 
     ImGui::Separator();
+    ImGui::Text("Atmosphere:");
+    ImGui::SliderFloat("Sky Exposure", &settings.atmosphereExposure, 0.2f, 2.5f);
+    ImGui::SliderFloat("Turbidity", &settings.atmosphereTurbidity, 1.0f, 10.0f);
+    ImGui::SliderFloat("Rayleigh", &settings.atmosphereRayleigh, 0.2f, 6.0f);
+    ImGui::SliderFloat("Mie Coefficient", &settings.atmosphereMieCoefficient, 0.0001f, 0.02f);
+    ImGui::SliderFloat("Mie Direction", &settings.atmosphereMieDirectionalG, 0.0f, 0.99f);
+    ImGui::SliderFloat("Star Intensity", &settings.atmosphereStarIntensity, 0.0f, 2.0f);
+    if (ImGui::SliderFloat("Sky Ambient", &settings.skyAmbientStrength, 0.0f, 1.0f))
+        markSettingsDirty();
+    if (ImGui::SliderFloat("Aerial Perspective", &settings.aerialPerspectiveDensity, 0.0f, 0.01f))
+        markSettingsDirty();
+
+    ImGui::Separator();
     if (ImGui::Checkbox("Wireframe Mode", &settings.wireframeMode))
         markSettingsDirty();
     ImGui::End();

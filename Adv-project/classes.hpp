@@ -52,6 +52,15 @@ public:
     float sunDistance    = 1200.0f;       // how far from the camera the sun is drawn
     float sunRadiusWorld = 70.0f;         // size of the visible sun in world units
 
+    float atmosphereExposure = 1.15f;
+    float atmosphereTurbidity = 2.2f;
+    float atmosphereRayleigh = 2.4f;
+    float atmosphereMieCoefficient = 0.0045f;
+    float atmosphereMieDirectionalG = 0.82f;
+    float atmosphereStarIntensity = 0.25f;
+    float skyAmbientStrength = 0.18f;
+    float aerialPerspectiveDensity = 0.0011f;
+
     std::vector<Material*> materials = { &waterMaterial, &sandMaterial, &grassMaterial, &rockMaterial, &snowMaterial };
 
     Material waterMaterial{

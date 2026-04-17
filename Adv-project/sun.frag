@@ -2,80 +2,36 @@
 
 out vec4 FragColor;
 
-in vec3 vDir;
+in vec3 vWorldPos;
+in vec3 vWorldNormal;
 
-uniform vec3 sunColor;
-uniform sampler2D skyDayTimeTexture;
-uniform sampler2D skyNightTimeTexture;
-uniform sampler2D skyDawnTexture;
-uniform sampler2D skyDuskTexture;
-uniform bool hasSkyTextures;
-uniform float sunTimeOfDayAngle;
-
-#define PI 3.14159265359
-#define TAU 6.28318530718
-
-vec2 directionToEquirectUV(vec3 d)
-{
-    d = normalize(d);
-
-    float u = atan(d.z, d.x) / TAU + 0.5;
-    float v = asin(clamp(d.y, -1.0, 1.0)) / PI + 0.5;
-    
-    float eps = 0.5 / 2048.0; // if texture width is 2048
-    u = fract(u);
-    u = mix(eps, 1.0 - eps, u);
-
-    return vec2(u, v);
-}
+uniform vec3 cameraPosWorld;
+uniform vec3 sunCoreColor;
+uniform vec3 sunHaloColor;
+uniform float sunIntensityScale;
 
 void main()
 {
-    if (!hasSkyTextures)
-    {
-        FragColor = vec4(sunColor, 1.0);
-        return;
-    }
+    // Calculate view direction from fragment to camera
+    vec3 viewDir = normalize(cameraPosWorld - vWorldPos);
+    vec3 normal = normalize(vWorldNormal);
 
-    vec2 uv = directionToEquirectUV(vDir);
+    // Calculate fresnel-like effect based on view direction
+    float facing = max(dot(normal, viewDir), 0.0);
+    
+    // Create multiple layers with different falloff rates
+    float body = pow(facing, 14.0);      // Main sun body glow
+    float core = pow(facing, 140.0);     // Bright core highlight
+    float halo = pow(facing, 3.5);       // Soft outer halo
 
-    vec3 skyNight = texture(skyNightTimeTexture, uv).rgb;
-    vec3 skyDawn  = texture(skyDawnTexture, uv).rgb;
-    vec3 skyDay   = texture(skyDayTimeTexture, uv).rgb;
-    vec3 skyDusk  = texture(skyDuskTexture, uv).rgb;
+    // Combine color layers with different intensities
+    vec3 radiance = sunHaloColor * halo * 0.35 + sunCoreColor * (body * 1.10 + core * 1.80);
 
-    float a = mod(sunTimeOfDayAngle, TAU);
-    if (a < 0.0)
-    {
-        a += TAU;
-    }
+    // Apply tone mapping to prevent overexposure
+    vec3 color = 1.0 - exp(-radiance * sunIntensityScale);
+    
+    // Calculate alpha blend based on body and halo visibility
+    float alpha = clamp(body * 1.10 + halo * 0.12, 0.0, 1.0);
 
-    vec3 skyColor;
-
-    // sunrise -> noon
-    if (a < 0.5 * PI)
-    {
-        float t = smoothstep(0.0, 0.5 * PI, a);
-        skyColor = mix(skyDawn, skyDay, t);
-    }
-    // noon -> sunset
-    else if (a < PI)
-    {
-        float t = smoothstep(0.5 * PI, PI, a);
-        skyColor = mix(skyDay, skyDusk, t);
-    }
-    // sunset -> midnight
-    else if (a < 1.5 * PI)
-    {
-        float t = smoothstep(PI, 1.5 * PI, a);
-        skyColor = mix(skyDusk, skyNight, t);
-    }
-    // midnight -> sunrise
-    else
-    {
-        float t = smoothstep(1.5 * PI, TAU, a);
-        skyColor = mix(skyNight, skyDawn, t);
-    }
-
-    FragColor = vec4(skyColor, 1.0);
+    FragColor = vec4(color, alpha);
 }

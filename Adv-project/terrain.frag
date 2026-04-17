@@ -18,28 +18,40 @@ in float vHeight;
 
 layout(location = 0) out vec4 fragmentColor;
 
+// Terrain textures
 uniform sampler2D terrainWaterTex;
 uniform sampler2D terrainSandTex;
 uniform sampler2D terrainGrassTex;
 uniform sampler2D terrainRockTex;
 uniform sampler2D terrainSnowTex;
 
-uniform float tileHeight;
-uniform float terrainTextureScale;
-uniform float blend;
-
-uniform sampler2D shadowMap;
-uniform bool shadowsEnabled = false;
-
-uniform vec3 lightDirWorld;
-uniform vec3 cameraPosWorld;
-
+// Terrain material properties
 uniform Material waterMaterial;
 uniform Material sandMaterial;
 uniform Material grassMaterial;
 uniform Material rockMaterial;
 uniform Material snowMaterial;
 
+// Terrain Texture parameters
+uniform float terrainTextureScale;
+uniform float blend;
+
+uniform float tileHeight; // Maximum height for terrain tiling calculations
+
+
+uniform sampler2D shadowMap;
+uniform bool shadowsEnabled;
+
+uniform vec3 lightDirWorld;
+uniform vec3 cameraPosWorld;
+
+// Sky and atmosphere parameters
+uniform vec3 skyAmbientColor = vec3(0.03, 0.05, 0.08);
+uniform float skyAmbientStrength = 0.18;
+uniform vec3 atmosphereFogColor = vec3(0.04, 0.06, 0.08);
+uniform float atmosphereFogDensity = 0.001;
+
+// Point light parameters
 uniform vec3  point_light_color = vec3(1.0, 0.956, 0.839);
 uniform float point_light_intensity_multiplier = 1.0;
 
@@ -182,12 +194,20 @@ void main()
     vec3 direct_illumination_term =
         (1.0 - shadow) * calculateDirectIllumination(wo, n, base_color, blendedMaterial);
 
-    vec3 indirect_illumination_term = vec3(0.0);
+    float upFacing = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 indirect_illumination_term =
+        base_color * skyAmbientColor * skyAmbientStrength * mix(0.45, 1.0, upFacing);
     vec3 emission_term = blendedMaterial.emission;
 
     vec3 shading = direct_illumination_term +
                    indirect_illumination_term +
                    emission_term;
+
+    float viewDistance = length(cameraPosWorld - vWorldPos);
+    float horizonView = 1.0 - clamp(abs(wo.y), 0.0, 1.0);
+    float fogAmount = 1.0 - exp(-viewDistance * atmosphereFogDensity);
+    fogAmount *= mix(0.35, 1.0, horizonView);
+    shading = mix(shading, atmosphereFogColor, clamp(fogAmount, 0.0, 0.70));
 
     fragmentColor = vec4(shading, 1.0);
 }
