@@ -82,7 +82,7 @@ vec3 calculateDirectIllumination(vec3 wo, vec3 n, vec3 base_color, Material mat)
 
     float G_1 = 2.0 * dot(n, wh) * dot(n, wo) / dot(wo, wh);
     float G_2 = 2.0 * dot(n, wh) * dot(n, wi) / dot(wo, wh);
-    float G   = min(1.0, min(G_1, G_2));
+    float G = max(0.0, min(1.0, min(G_1, G_2)));
 
     float denom = 4.0 * clamp(dot(n, wo) * dot(n, wi), 0.001, 1.0);
     float brdf  = (F_wi * D_wh * G) / denom;
