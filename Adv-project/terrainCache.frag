@@ -50,7 +50,7 @@ float fbm(vec2 p)
     float amplitude = 0.5;
     float frequency = 1.0;
 
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 100; ++i)
     {
         sum += amplitude * valueNoise(p * frequency);
         frequency *= 2.0;
@@ -68,10 +68,10 @@ float fbm(vec2 p)
 // -----------------------------------------------------------------------------
 float getTerrainHeight(vec2 worldXZ)
 {
-    const float noiseScale = 0.03;
+    const float noiseScale = 0.008;
 
     float h = fbm(worldXZ * noiseScale);
-    h = smoothstep(0.2, 0.8, h);
+    h = smoothstep(0.55, 0.9, h);
     h = clamp(h * heightScale, 0.0, 1.0);
 
     return h * tileHeight;

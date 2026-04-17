@@ -26,12 +26,12 @@
 using namespace glm;
 
 // Settings
-#define SQUARE_SIZE 64 // 64
+constexpr float SQUARE_SIZE = 64.0f; // 64.0
 constexpr int gridRes = 128; // (128) number of quads per terrain tile, this determines how detailed the terrain can be within a single tile
 constexpr int terrainTileSeed = 1337; // random seed for terrain generation, this can be used in the shader to generate different noise patterns for different tiles
 constexpr int renderDistance = 20; // (20) how many terrain tiles to render in each direction from the camera, so renderDistance=1 means only the 8 tiles surrounding the camera and the one the camera is on will be rendered, renderDistance=2 means a 5x5 grid of tiles will be rendered etc.
 constexpr int terrainCacheResolution = (renderDistance * 2 + 1) * gridRes + 1;
-constexpr float terrainToGridWidthRatio = 0.4f; // (1.2)
+constexpr float terrainMaxHeight = 77.0f; // (77.0)
 GUISettings guiSettings;
 
 // Structs
@@ -44,7 +44,7 @@ struct TerrainSquare
     vec3 center = glm::vec3(0.0f, 0.0f, 0.0f);; // world position of the center of the square, acts as an ID and coordinates
     float width = SQUARE_SIZE; // width of the square in world units
     float length = width; // length of the square in world units, for now we will keep it the same as width but this allows for non square rectangles in the future if needed
-    float height = width*terrainToGridWidthRatio; // Maximum allowed height of the terrain in this square in relation to the width.
+    float height = terrainMaxHeight; // Maximum allowed height of the terrain in this square in relation to the width.
 };
 
 // Globals
