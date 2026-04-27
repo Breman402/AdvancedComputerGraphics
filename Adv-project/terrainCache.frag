@@ -71,13 +71,13 @@ float baseHeight(vec2 worldXZ)
     return h;
 }
 
-float fbmCustom(vec2 p, float startFreq, float freqMul, float startAmp, float ampMul)
+float fbmCustom(vec2 p, float startFreq, float freqMul, float startAmp, float ampMul, int maxOctaves = 100)
 {
     float sum = 0.0;
     float amplitude = startAmp;
     float frequency = startFreq;
 
-    for (int i = 0; i < 100; ++i)
+    for (int i = 0; i < maxOctaves; ++i)
     {
         if (amplitude < 0.0005) break;
         sum += amplitude * valueNoise(p * frequency);
@@ -92,31 +92,31 @@ float fbmCustom(vec2 p, float startFreq, float freqMul, float startAmp, float am
 // Terrain height
 // heightScale = user multiplier
 // tileHeight  = hard max
-// final result is clamped to [0, tileHeight]
 // -----------------------------------------------------------------------------
 float getTerrainHeight(vec2 worldXZ)
 {
     float base = baseHeight(worldXZ);
-
-    float shoreDetail = fbmCustom(worldXZ * 0.008, 1.0, 1.8, 0.35, 0.5);
-    float grassDetail = fbmCustom(worldXZ * 0.012, 1.0, 2.0, 0.45, 0.5);
-    float rockDetail  = fbmCustom(worldXZ * 0.020, 1.0, 2.3, 0.5, 0.5);
-    float snowDetail  = fbmCustom(worldXZ * 0.015, 1.0, 1.7, 0.25, 0.5);
 
     float shoreMask = 1.0 - smoothstep(0.10, 0.20, base);
     float grassMask = smoothstep(0.15, 0.30, base) * (1.0 - smoothstep(0.45, 0.60, base));
     float rockMask  = smoothstep(0.50, 0.65, base) * (1.0 - smoothstep(0.75, 0.88, base));
     float snowMask  = smoothstep(0.80, 0.95, base);
 
-    float detail =
-          shoreDetail * shoreMask
-        + grassDetail * grassMask
-        + rockDetail  * rockMask
-        + snowDetail  * snowMask;
+    float detail = 0.0;
+
+    if (shoreMask > 0.001)
+        detail += fbmCustom(worldXZ * 0.008, 1.0, 1.8, 0.35, 0.5, 8) * shoreMask;
+
+    if (grassMask > 0.001)
+        detail += fbmCustom(worldXZ * 0.012, 1.0, 2.0, 0.45, 0.5, 8) * grassMask;
+
+    if (rockMask > 0.001)
+        detail += fbmCustom(worldXZ * 0.020, 1.0, 2.3, 0.5, 0.5, 10) * rockMask;
+
+    if (snowMask > 0.001)
+        detail += fbmCustom(worldXZ * 0.015, 1.0, 1.7, 0.25, 0.5, 8) * snowMask;
 
     float h = base + 0.25 * detail;
-    h = clamp(h * heightScale, 0.0, 1.0);
-
     return h * tileHeight;
 }
 
