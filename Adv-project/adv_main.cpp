@@ -34,6 +34,26 @@ constexpr int terrainCacheResolution = (renderDistance * 2 + 1) * gridRes + 1;
 constexpr float terrainMaxHeight = 77.0f; // (77.0)
 GUISettings guiSettings;
 
+// Texture units
+constexpr int terrainWaterTexUnit = 0;
+constexpr int terrainSandTexUnit = 1;
+constexpr int terrainGrassTexUnit0 = 2;
+constexpr int terrainGrassTexUnit1 = 3;
+constexpr int terrainGrassTexUnit2 = 4;
+constexpr int terrainGrassTexUnit3 = 5;
+constexpr int terrainRockTexUnit0 = 6;
+constexpr int terrainRockTexUnit1 = 7;
+constexpr int terrainRockTexUnit2 = 8;
+constexpr int terrainRockTexUnit3 = 9;
+constexpr int terrainSnowTexUnit0 = 10;
+constexpr int terrainSnowTexUnit1 = 11;
+constexpr int terrainSnowTexUnit2 = 12;
+constexpr int terrainSnowTexUnit3 = 13;
+constexpr int terrainShadowTexUnit = 14;
+constexpr int terrainHeightTexUnit = 15;
+constexpr int terrainNormalTexUnit = 16;
+constexpr int starFieldTexUnit = 17;
+
 // Structs
 
 /**
@@ -53,8 +73,7 @@ GLuint terrainShader = 0;
 GLuint terrainCacheProgram = 0;
 
 // Terrain textures
-GLuint terrainWaterTexture;GLuint terrainSandTexture;GLuint terrainGrassTexture;GLuint terrainRockTexture;GLuint terrainSnowTexture;
-
+GLuint terrainWaterTexture = 0; GLuint terrainSandTexture = 0; GLuint terrainGrassTextures[4] = {}; GLuint terrainRockTextures[4] = {}; GLuint terrainSnowTextures[4] = {};
 TerrainTileMesh terrainTileMesh;
 
 // Lighting
@@ -140,9 +159,18 @@ void initialize()
 	// Load the inital terrain textures:
     terrainWaterTexture = loadTexture("../Adv-project/textures/water.png");
     terrainSandTexture = loadTexture("../Adv-project/textures/sand.png");
-    terrainGrassTexture = loadTexture("../Adv-project/textures/grass.png");
-    terrainRockTexture = loadTexture("../Adv-project/textures/rock.png");
-    terrainSnowTexture = loadTexture("../Adv-project/textures/snow.png");
+    terrainGrassTextures[0] = loadTexture("../Adv-project/textures/grass.png");
+    terrainGrassTextures[1] = loadTexture("../Adv-project/textures/grass2.png");
+    terrainGrassTextures[2] = loadTexture("../Adv-project/textures/grass3.png");
+    terrainGrassTextures[3] = loadTexture("../Adv-project/textures/grass4.png");
+    terrainRockTextures[0] = loadTexture("../Adv-project/textures/rock.png");
+    terrainRockTextures[1] = loadTexture("../Adv-project/textures/rock2.png");
+    terrainRockTextures[2] = loadTexture("../Adv-project/textures/rock3.png");
+    terrainRockTextures[3] = loadTexture("../Adv-project/textures/rock4.png");
+    terrainSnowTextures[0] = loadTexture("../Adv-project/textures/snow.png");
+    terrainSnowTextures[1] = loadTexture("../Adv-project/textures/snow2.png");
+    terrainSnowTextures[2] = loadTexture("../Adv-project/textures/snow3.png");
+    terrainSnowTextures[3] = loadTexture("../Adv-project/textures/snow4.png");
 
     // Use the night panorama as a star field on top of the procedural atmosphere.
     starFieldTexture = loadTexture("../Adv-project/textures/skyNightTime.png");
@@ -212,9 +240,9 @@ void display()
     labhelper::setUniformSlow(shadowProgram, "terrainCacheOriginWorld", terrainCacheOriginWorld);
     labhelper::setUniformSlow(shadowProgram, "terrainVertexSpacing", terrainVertexSpacing);
     labhelper::setUniformSlow(shadowProgram, "terrainCacheResolution", terrainTileMesh.cacheResolution());
-    labhelper::setUniformSlow(shadowProgram, "terrainHeightTex", 6);
+    labhelper::setUniformSlow(shadowProgram, "terrainHeightTex", terrainHeightTexUnit);
 
-    glActiveTexture(GL_TEXTURE0 + 6);
+    glActiveTexture(GL_TEXTURE0 + terrainHeightTexUnit);
     glBindTexture(GL_TEXTURE_2D, terrainTileMesh.heightTexture());
     
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -261,24 +289,51 @@ void display()
 
     glUseProgram(terrainShader);
 
+    glActiveTexture(GL_TEXTURE0 + terrainWaterTexUnit);
+    glBindTexture(GL_TEXTURE_2D, terrainWaterTexture);
+    glActiveTexture(GL_TEXTURE0 + terrainSandTexUnit);
+    glBindTexture(GL_TEXTURE_2D, terrainSandTexture);
+    glActiveTexture(GL_TEXTURE0 + terrainGrassTexUnit0);
+    glBindTexture(GL_TEXTURE_2D, terrainGrassTextures[0]);
+    glActiveTexture(GL_TEXTURE0 + terrainGrassTexUnit1);
+    glBindTexture(GL_TEXTURE_2D, terrainGrassTextures[1]);
+    glActiveTexture(GL_TEXTURE0 + terrainGrassTexUnit2);
+    glBindTexture(GL_TEXTURE_2D, terrainGrassTextures[2]);
+    glActiveTexture(GL_TEXTURE0 + terrainGrassTexUnit3);
+    glBindTexture(GL_TEXTURE_2D, terrainGrassTextures[3]);
+    glActiveTexture(GL_TEXTURE0 + terrainRockTexUnit0);
+    glBindTexture(GL_TEXTURE_2D, terrainRockTextures[0]);
+    glActiveTexture(GL_TEXTURE0 + terrainRockTexUnit1);
+    glBindTexture(GL_TEXTURE_2D, terrainRockTextures[1]);
+    glActiveTexture(GL_TEXTURE0 + terrainRockTexUnit2);
+    glBindTexture(GL_TEXTURE_2D, terrainRockTextures[2]);
+    glActiveTexture(GL_TEXTURE0 + terrainRockTexUnit3);
+    glBindTexture(GL_TEXTURE_2D, terrainRockTextures[3]);
+    glActiveTexture(GL_TEXTURE0 + terrainSnowTexUnit0);
+    glBindTexture(GL_TEXTURE_2D, terrainSnowTextures[0]);
+    glActiveTexture(GL_TEXTURE0 + terrainSnowTexUnit1);
+    glBindTexture(GL_TEXTURE_2D, terrainSnowTextures[1]);
+    glActiveTexture(GL_TEXTURE0 + terrainSnowTexUnit2);
+    glBindTexture(GL_TEXTURE_2D, terrainSnowTextures[2]);
+    glActiveTexture(GL_TEXTURE0 + terrainSnowTexUnit3);
+    glBindTexture(GL_TEXTURE_2D, terrainSnowTextures[3]);
+
     if (!guiSettings.uploadGuard)
     {
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, terrainWaterTexture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, terrainSandTexture);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, terrainGrassTexture);
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, terrainRockTexture);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, terrainSnowTexture);
-
-        labhelper::setUniformSlow(terrainShader, "terrainWaterTex", 0);
-        labhelper::setUniformSlow(terrainShader, "terrainSandTex", 1);
-        labhelper::setUniformSlow(terrainShader, "terrainGrassTex", 2);
-        labhelper::setUniformSlow(terrainShader, "terrainRockTex", 3);
-        labhelper::setUniformSlow(terrainShader, "terrainSnowTex", 4);
+        labhelper::setUniformSlow(terrainShader, "terrainWaterTex", terrainWaterTexUnit);
+        labhelper::setUniformSlow(terrainShader, "terrainSandTex", terrainSandTexUnit);
+        labhelper::setUniformSlow(terrainShader, "terrainGrassTex0", terrainGrassTexUnit0);
+        labhelper::setUniformSlow(terrainShader, "terrainGrassTex1", terrainGrassTexUnit1);
+        labhelper::setUniformSlow(terrainShader, "terrainGrassTex2", terrainGrassTexUnit2);
+        labhelper::setUniformSlow(terrainShader, "terrainGrassTex3", terrainGrassTexUnit3);
+        labhelper::setUniformSlow(terrainShader, "terrainRockTex0", terrainRockTexUnit0);
+        labhelper::setUniformSlow(terrainShader, "terrainRockTex1", terrainRockTexUnit1);
+        labhelper::setUniformSlow(terrainShader, "terrainRockTex2", terrainRockTexUnit2);
+        labhelper::setUniformSlow(terrainShader, "terrainRockTex3", terrainRockTexUnit3);
+        labhelper::setUniformSlow(terrainShader, "terrainSnowTex0", terrainSnowTexUnit0);
+        labhelper::setUniformSlow(terrainShader, "terrainSnowTex1", terrainSnowTexUnit1);
+        labhelper::setUniformSlow(terrainShader, "terrainSnowTex2", terrainSnowTexUnit2);
+        labhelper::setUniformSlow(terrainShader, "terrainSnowTex3", terrainSnowTexUnit3);
 
         guiSettings.sendToShader(terrainShader);
 
@@ -289,8 +344,8 @@ void display()
         labhelper::setUniformSlow(terrainShader, "blend", guiSettings.blend);
         labhelper::setUniformSlow(terrainShader, "wireframeMode", guiSettings.wireframeMode);
         labhelper::setUniformSlow(terrainShader, "showTexture", 1);
-        labhelper::setUniformSlow(terrainShader, "terrainHeightTex", 6);
-        labhelper::setUniformSlow(terrainShader, "terrainNormalTex", 7);
+        labhelper::setUniformSlow(terrainShader, "terrainHeightTex", terrainHeightTexUnit);
+        labhelper::setUniformSlow(terrainShader, "terrainNormalTex", terrainNormalTexUnit);
 
         labhelper::setUniformSlow(terrainShader, "tileHeight", sampleSquare.height);
 
@@ -307,12 +362,12 @@ void display()
     labhelper::setUniformSlow(terrainShader, "atmosphereFogColor", sunLighting.fogColor);
     labhelper::setUniformSlow(terrainShader, "atmosphereFogDensity", guiSettings.aerialPerspectiveDensity);
 
-    glActiveTexture(GL_TEXTURE5);
+    glActiveTexture(GL_TEXTURE0 + terrainShadowTexUnit);
     glBindTexture(GL_TEXTURE_2D, shadowMap.depthTex);
-    labhelper::setUniformSlow(terrainShader, "shadowMap", 5);
-    glActiveTexture(GL_TEXTURE0 + 6);
+    labhelper::setUniformSlow(terrainShader, "shadowMap", terrainShadowTexUnit);
+    glActiveTexture(GL_TEXTURE0 + terrainHeightTexUnit);
     glBindTexture(GL_TEXTURE_2D, terrainTileMesh.heightTexture());
-    glActiveTexture(GL_TEXTURE0 + 7);
+    glActiveTexture(GL_TEXTURE0 + terrainNormalTexUnit);
     glBindTexture(GL_TEXTURE_2D, terrainTileMesh.normalTexture());
 
     labhelper::setUniformSlow(terrainShader, "terrainCacheOriginWorld", terrainCacheOriginWorld);
@@ -377,9 +432,9 @@ void display()
     labhelper::setUniformSlow(atmosphereProgram, "exposure", guiSettings.atmosphereExposure);
     labhelper::setUniformSlow(atmosphereProgram, "starIntensity", guiSettings.atmosphereStarIntensity);
 
-    glActiveTexture(GL_TEXTURE6);
+    glActiveTexture(GL_TEXTURE0 + starFieldTexUnit);
     glBindTexture(GL_TEXTURE_2D, starFieldTexture);
-    labhelper::setUniformSlow(atmosphereProgram, "starTexture", 6);
+    labhelper::setUniformSlow(atmosphereProgram, "starTexture", starFieldTexUnit);
 
     glBindVertexArray(g_atmosphereSphere.vao);
     glDepthMask(GL_FALSE); // No depth mask so that the terrain can be seen through the atmosphere
