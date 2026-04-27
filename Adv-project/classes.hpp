@@ -470,21 +470,21 @@ public:
         glm::vec3(0.1f, 0.6f, 0.1f), // color
         0.0f, // metalness
         0.0f, // fresnel
-        32.0f, // shininess
+        0.0f, // shininess
         glm::vec3(0.0f) // emission
     };
     Material rockMaterial{
         glm::vec3(0.5f, 0.5f, 0.5f), // color
         0.0f, // metalness
         0.0f, // fresnel
-        8.24f, // shininess
+        0.0f, // shininess
         glm::vec3(0.0f) // emission
     };
     Material snowMaterial{
         glm::vec3(0.9f, 0.9f, 0.9f), // color
         0.0f, // metalness
         0.369f, // fresnel
-        1.0f, // shininess
+        0.0f, // shininess
         glm::vec3(0.0f) // emission
     };
 
