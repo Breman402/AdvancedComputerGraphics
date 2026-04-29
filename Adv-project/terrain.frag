@@ -44,9 +44,9 @@ uniform Material snowMaterial;
 // Terrain Texture parameters
 uniform float terrainTextureScale;
 uniform float blend;
-const float grassBlendPatchScale = 0.045f;
-const float rockBlendPatchScale = 0.035f;
-const float snowBlendPatchScale = 0.030f;
+const float grassBlendPatchScale = 0.045;
+const float rockBlendPatchScale = 0.035;
+const float snowBlendPatchScale = 0.030;
 
 uniform float tileHeight; // Maximum height for terrain tiling calculations
 
