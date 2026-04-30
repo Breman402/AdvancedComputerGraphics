@@ -18,6 +18,7 @@
 #include "sphereMesh.hpp"
 #include "gui.hpp"
 #include "applicationIcon.hpp"
+#include "scatter.hpp"
 
 #include "camera.hpp"
 #include "createShadow.hpp"
@@ -75,6 +76,19 @@ GLuint terrainCacheProgram = 0;
 // Terrain textures
 GLuint terrainWaterTexture = 0; GLuint terrainSandTexture = 0; GLuint terrainGrassTextures[4] = {}; GLuint terrainRockTextures[4] = {}; GLuint terrainSnowTextures[4] = {};
 TerrainTileMesh terrainTileMesh;
+
+// Scatter
+ScatterObject treeScatterObject(
+    "Tree", // Name
+    {0.5f, 2.0f}, // Scale
+    0.0f, // Offset
+    {TerrainType::gras, TerrainType::gras}, // Terrain range
+    64.0f, // Grid size
+    100, // Frequency
+    "../Adv-project/models/Tree/Tree.obj" // .obj path
+); 
+std::vector<ScatterObject*> scatterObjects = { &treeScatterObject };
+
 
 // Lighting
 mat4 lightViewMatrix;
@@ -209,6 +223,11 @@ void display()
     if (terrainTileMesh.cacheNeedsUpdate(terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed))
     {
         terrainTileMesh.updateCache(terrainCacheProgram, terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed);
+    }
+
+    for (ScatterObject* scatterObject : scatterObjects)
+    {
+        scatterObject->updateInstances(cameraGridX, cameraGridZ, renderDistance, sampleSquare.width);
     }
 
     updateShadowMatrices(cameraGridX, cameraGridZ, terrainSquareSize, renderDistance, sampleSquare.height, lightDirWorld, lightViewMatrix, lightProjectionMatrix);
