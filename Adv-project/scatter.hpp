@@ -1,6 +1,7 @@
 #include <string>
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/common.hpp>
 #include <GL/glew.h>
 #include <cmath>
@@ -8,6 +9,7 @@
 #include <utility>
 #include <vector>
 #include <labhelper.h>
+#include <Model.h>
 
 enum class TerrainType
 {
@@ -55,6 +57,25 @@ class ScatterObject
         this->offset = newOffset;
         this->grid = newgrid;
         this->freq = newfreq;
+    }
+
+    labhelper::Model* getModel(){
+        return model;
+    }
+
+    const pair<TerrainType, TerrainType>& getTerrainRange() const{
+        return terrainRange;
+    }
+
+    float getOffset() const{
+        return offset;
+    }
+
+    void loadModel(){
+        if (model == nullptr)
+        {
+            model = labhelper::loadModelFromOBJ(modelPath);
+        }
     }
 
     vector<ScatterInstance> generateInstances(int centerGridX, int centerGridZ, int renderDistance, float terrainSquareSize){
@@ -150,20 +171,119 @@ class ScatterObject
     pair<TerrainType, TerrainType> terrainRange; // The lowest and highest terrain that the scatter obj. will spawn at
     vector<ScatterInstance> instances;
     int seed = 1337; // This should be unique per scatter object type so different objects do not share identical placements.
+    labhelper::Model* model = nullptr;
 };
 
 class ScatterObjectRenderer
 {
     public:
-    ScatterObjectRenderer(const string& vertShaderPath, const string& fragShaderPath){
+    ScatterObjectRenderer(const vector<ScatterObject*>& scatterObjects, const string& vertShaderPath, const string& fragShaderPath){
         this->renderer = labhelper::loadShaderProgram(vertShaderPath, fragShaderPath);
+        this->scatterObjects = scatterObjects;
+        glGenBuffers(1, &instanceVbo);
+
+        for (ScatterObject* scatterObject : scatterObjects)
+        {
+            scatterObject->loadModel();
+        }
     }
 
-    void render(vector<ScatterInstance> instances){
-        
+    void render(
+        const int cameraGridX,
+        const int cameraGridZ,
+        const int renderDistance,
+        const float width,
+        const glm::mat4& projection,
+        const glm::mat4& view,
+        const GLuint terrainHeightTexture,
+        const int terrainHeightTexUnit,
+        const glm::vec3& terrainCacheOriginWorld,
+        const float terrainVertexSpacing,
+        const int terrainCacheResolution,
+        const float tileHeight)
+    {
+        glUseProgram(renderer);
+
+        glActiveTexture(GL_TEXTURE0 + terrainHeightTexUnit);
+        glBindTexture(GL_TEXTURE_2D, terrainHeightTexture);
+
+        labhelper::setUniformSlow(renderer, "viewProjectionMatrix", projection * view);
+        labhelper::setUniformSlow(renderer, "terrainHeightTex", terrainHeightTexUnit);
+        labhelper::setUniformSlow(renderer, "terrainCacheOriginWorld", terrainCacheOriginWorld);
+        labhelper::setUniformSlow(renderer, "terrainVertexSpacing", terrainVertexSpacing);
+        labhelper::setUniformSlow(renderer, "terrainCacheResolution", terrainCacheResolution);
+        labhelper::setUniformSlow(renderer, "tileHeight", tileHeight);
+        labhelper::setUniformSlow(renderer, "color_texture", 0);
+
+        for (ScatterObject* scatterObject : scatterObjects)
+        {
+            scatterObject->updateInstances(cameraGridX, cameraGridZ, renderDistance, width);
+            const vector<ScatterInstance>& objInstances = scatterObject->getInstances();
+            const labhelper::Model* objectModel = scatterObject->getModel();
+            if (objectModel == nullptr)
+            {
+                continue;
+            }
+
+            const pair<TerrainType, TerrainType>& terrainRange = scatterObject->getTerrainRange();
+            float minTerrainHeight01 = terrainTypeLowerBound(terrainRange.first);
+            float maxTerrainHeight01 = terrainTypeUpperBound(terrainRange.second);
+            if (minTerrainHeight01 > maxTerrainHeight01)
+            {
+                const float temp = minTerrainHeight01;
+                minTerrainHeight01 = terrainTypeLowerBound(terrainRange.second);
+                maxTerrainHeight01 = terrainTypeUpperBound(terrainRange.first);
+            }
+
+            labhelper::setUniformSlow(renderer, "minTerrainHeight01", minTerrainHeight01);
+            labhelper::setUniformSlow(renderer, "maxTerrainHeight01", maxTerrainHeight01);
+            labhelper::setUniformSlow(renderer, "heightOffset", scatterObject->getOffset());
+
+            for (const ScatterInstance& instance : objInstances)
+            {
+                const glm::vec3 instancePosition(instance.worldPos.x, 0.0f, instance.worldPos.y);
+                const glm::mat4 modelMatrix =
+                    glm::translate(glm::mat4(1.0f), instancePosition) *
+                    glm::rotate(glm::mat4(1.0f), instance.rotation, glm::vec3(0.0f, 1.0f, 0.0f)) *
+                    glm::scale(glm::mat4(1.0f), glm::vec3(instance.scale));
+
+                labhelper::setUniformSlow(renderer, "modelMatrix", modelMatrix);
+
+                labhelper::render(objectModel);
+            }
+        }
+
     }
     
     private:
+    static float terrainTypeLowerBound(const TerrainType terrainType)
+    {
+        switch (terrainType)
+        {
+            case TerrainType::water: return 0.0f;
+            case TerrainType::sand:  return 0.03f;
+            case TerrainType::gras:  return 0.06f;
+            case TerrainType::rock:  return 0.25f;
+            case TerrainType::snow:  return 0.50f;
+        }
+        return 0.0f;
+    }
+
+    static float terrainTypeUpperBound(const TerrainType terrainType)
+    {
+        switch (terrainType)
+        {
+            case TerrainType::water: return 0.03f;
+            case TerrainType::sand:  return 0.06f;
+            case TerrainType::gras:  return 0.25f;
+            case TerrainType::rock:  return 0.50f;
+            case TerrainType::snow:  return 1.0f;
+        }
+        return 1.0f;
+    }
+
     GLuint renderer;
+    GLuint instanceVbo;
+    vector<ScatterObject*> scatterObjects;
 
 };
