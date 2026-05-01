@@ -88,6 +88,7 @@ ScatterObject treeScatterObject(
     "../Adv-project/models/Tree/Tree.obj" // .obj path
 ); 
 std::vector<ScatterObject*> scatterObjects = { &treeScatterObject };
+ScatterObjectRenderer* scatterRenderer = nullptr;
 
 
 // Lighting
@@ -166,6 +167,12 @@ void initialize()
         "../Adv-project/atmosphere.frag"
     );
 
+    scatterRenderer = new ScatterObjectRenderer(
+        scatterObjects,
+        "../Adv-project/scatter.vert",
+        "../Adv-project/scatter.frag"
+    );
+
 	// Create shadow map
 	shadowMap = createShadowMap(guiSettings.shadowMapSize);
     guiSettings.shadowMap = &shadowMap; // So that the shadow map can be changed later from the GUI
@@ -225,16 +232,11 @@ void display()
         terrainTileMesh.updateCache(terrainCacheProgram, terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed);
     }
 
-    for (ScatterObject* scatterObject : scatterObjects)
-    {
-        scatterObject->updateInstances(cameraGridX, cameraGridZ, renderDistance, sampleSquare.width);
-    }
-
     updateShadowMatrices(cameraGridX, cameraGridZ, terrainSquareSize, renderDistance, sampleSquare.height, lightDirWorld, lightViewMatrix, lightProjectionMatrix);
 
     // ---- Camera ----
     const float totalYaw = cameraYaw + viewYawOffset;
-    const float totalPitch = clamp(cameraPitch + viewPitchOffset, radians(-89.0f), radians(89.0f));
+    const float totalPitch = glm::clamp(cameraPitch + viewPitchOffset, radians(-89.0f), radians(89.0f));
     const glm::vec3 F_rot = normalize(glm::vec3(
         sin(totalYaw) * cos(totalPitch),
         sin(totalPitch),
@@ -429,6 +431,23 @@ void display()
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
+    // ------------------------------------------------------------------------
+    // Render all scatter objects
+    // ------------------------------------------------------------------------
+    scatterRenderer->render(
+        cameraGridX,
+        cameraGridZ,
+        renderDistance,
+        float(terrainSquareSize),
+        projection,
+        view,
+        terrainTileMesh.heightTexture(),
+        terrainHeightTexUnit,
+        terrainCacheOriginWorld,
+        terrainVertexSpacing,
+        terrainTileMesh.cacheResolution(),
+        sampleSquare.height
+    );
 
     // ------------------------------------------------------------------------
     // Draw the atmosphere
