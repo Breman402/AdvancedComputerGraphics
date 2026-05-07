@@ -10,6 +10,7 @@
 #include <vector>
 #include <labhelper.h>
 #include <Model.h>
+#include "shaderUniforms.hpp"
 
 enum class TerrainType
 {
@@ -195,25 +196,14 @@ class ScatterObjectRenderer
         const float width,
         const glm::mat4& projection,
         const glm::mat4& view,
-        const GLuint terrainHeightTexture,
-        const int terrainHeightTexUnit,
-        const glm::vec3& terrainCacheOriginWorld,
-        const float terrainVertexSpacing,
-        const int terrainCacheResolution,
-        const float tileHeight)
+        const ShaderUniforms& shaderUniforms)
     {
         glUseProgram(renderer);
 
-        glActiveTexture(GL_TEXTURE0 + terrainHeightTexUnit);
-        glBindTexture(GL_TEXTURE_2D, terrainHeightTexture);
+        shaderUniforms.bindTerrainHeightTexture();
 
         labhelper::setUniformSlow(renderer, "viewProjectionMatrix", projection * view);
-        labhelper::setUniformSlow(renderer, "terrainHeightTex", terrainHeightTexUnit);
-        labhelper::setUniformSlow(renderer, "terrainCacheOriginWorld", terrainCacheOriginWorld);
-        labhelper::setUniformSlow(renderer, "terrainVertexSpacing", terrainVertexSpacing);
-        labhelper::setUniformSlow(renderer, "terrainCacheResolution", terrainCacheResolution);
-        labhelper::setUniformSlow(renderer, "tileHeight", tileHeight);
-        labhelper::setUniformSlow(renderer, "color_texture", 0);
+        shaderUniforms.uploadScatterTerrain(renderer);
 
         for (ScatterObject* scatterObject : scatterObjects)
         {
