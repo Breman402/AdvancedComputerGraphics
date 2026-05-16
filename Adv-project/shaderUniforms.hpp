@@ -177,6 +177,28 @@ public:
         labhelper::setUniformSlow(shaderProgram, "color_texture", 0);
     }
 
+    void uploadScatterFrame(const GLuint shaderProgram) const
+    {
+        labhelper::setUniformSlow(shaderProgram, "lightViewProj", lightViewProj());
+        labhelper::setUniformSlow(shaderProgram, "lightDirWorld", *lightDirWorld);
+        labhelper::setUniformSlow(shaderProgram, "cameraPosWorld", *cameraPosWorld);
+        labhelper::setUniformSlow(shaderProgram, "point_light_color", sunLighting->directLightColor);
+        labhelper::setUniformSlow(shaderProgram, "point_light_intensity_multiplier", settings->lightIntensity);
+        labhelper::setUniformSlow(shaderProgram, "skyAmbientColor", sunLighting->skyAmbientColor);
+        labhelper::setUniformSlow(shaderProgram, "skyAmbientStrength", settings->skyAmbientStrength);
+        labhelper::setUniformSlow(shaderProgram, "atmosphereFogColor", sunLighting->fogColor);
+        labhelper::setUniformSlow(shaderProgram, "atmosphereFogDensity", settings->aerialPerspectiveDensity);
+        labhelper::setUniformSlow(shaderProgram, "shadowsEnabled", settings->shadowsEnabled);
+        labhelper::setUniformSlow(shaderProgram, "shadowMap", textureUnits.terrainShadow);
+    }
+
+    void uploadScatterShadow(const GLuint shaderProgram) const
+    {
+        labhelper::setUniformSlow(shaderProgram, "lightViewProj", lightViewProj());
+        uploadScatterTerrain(shaderProgram);
+        labhelper::setUniformSlow(shaderProgram, "scatterShadowMode", true);
+    }
+
     void uploadAtmosphere(const GLuint shaderProgram, const float sunIntensityScale) const
     {
         labhelper::setUniformSlow(shaderProgram, "sunDirectionWorld", sunLighting->sunDirection);

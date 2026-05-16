@@ -250,6 +250,7 @@ void display()
 
     shaderUniforms.uploadShadowTerrain(shadowProgram);
     shaderUniforms.bindTerrainHeightTexture();
+    labhelper::setUniformSlow(shadowProgram, "scatterShadowMode", false);
     
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(2.0f, 4.0f);
@@ -277,6 +278,15 @@ void display()
             terrainTileMesh.draw();
         }
     }
+
+    scatterRenderer->renderShadow(
+        cameraGridX,
+        cameraGridZ,
+        renderDistance,
+        float(terrainSquareSize),
+        shaderUniforms,
+        shadowProgram
+    );
 
     glDisable(GL_POLYGON_OFFSET_FILL);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

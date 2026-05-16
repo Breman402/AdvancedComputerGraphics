@@ -6,6 +6,7 @@ layout(location = 2) in vec2 texCoord;
 
 uniform mat4 modelMatrix;
 uniform mat4 viewProjectionMatrix;
+uniform mat4 lightViewProj;
 uniform sampler2D terrainHeightTex;
 uniform vec3 terrainCacheOriginWorld;
 uniform float terrainVertexSpacing;
@@ -16,6 +17,8 @@ uniform float maxTerrainHeight01;
 uniform float heightOffset;
 
 out vec3 vWorldNormal;
+out vec3 vWorldPos;
+out vec4 vShadowCoord;
 out vec2 vTexCoord;
 flat out int vTerrainAllowed;
 
@@ -37,6 +40,8 @@ void main()
     worldPos.y += terrainHeight + heightOffset;
 
     vWorldNormal = normalize(mat3(transpose(inverse(modelMatrix))) * normal);
+    vWorldPos = worldPos.xyz;
+    vShadowCoord = lightViewProj * worldPos;
     vTexCoord = texCoord;
     gl_Position = viewProjectionMatrix * worldPos;
 }
