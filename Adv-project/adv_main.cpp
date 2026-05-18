@@ -200,9 +200,9 @@ void display()
     const float aspect = float(w) / float(h ? h : 1);
     const mat4 projection = perspective(radians(60.0f), aspect, 0.1f, 3000.0f);
 
-    constexpr int terrainSquareSize = SQUARE_SIZE;
-    const int cameraGridX = static_cast<int>(std::floor(cameraPosition.x / float(terrainSquareSize)));
-    const int cameraGridZ = static_cast<int>(std::floor(cameraPosition.z / float(terrainSquareSize)));
+    constexpr float terrainSquareSize = SQUARE_SIZE;
+    const int cameraGridX = static_cast<int>(std::floor(cameraPosition.x / terrainSquareSize));
+    const int cameraGridZ = static_cast<int>(std::floor(cameraPosition.z / terrainSquareSize));
 
     const ivec2 terrainCacheOriginGrid(cameraGridX - renderDistance, cameraGridZ - renderDistance);
     const vec3 terrainCacheOriginWorld = terrainTileMesh.cacheOriginWorld(terrainCacheOriginGrid, sampleSquare.width);
