@@ -454,6 +454,7 @@ public:
     int cutoffHighestDetail = 2;
     int cutoffSecondDetail = 5;
     int cutoffThirdDetail = 10;
+    int scatterObjectRenderDistance = 5;
 
     std::vector<Material*> materials = { &waterMaterial, &sandMaterial, &grassMaterial, &rockMaterial, &snowMaterial };
 

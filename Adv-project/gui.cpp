@@ -13,6 +13,10 @@ void gui(GUISettings& settings)
     };
 
     ImGui::Begin("Settings");
+
+    const ImGuiIO& io = ImGui::GetIO();
+    const float frameTimeMs = io.Framerate > 0.0f ? 1000.0f / io.Framerate : 0.0f;
+    ImGui::Text("FPS: %.1f (%.2f ms)", io.Framerate, frameTimeMs);
     
     ImGui::Separator();
 
@@ -89,6 +93,7 @@ void gui(GUISettings& settings)
     ImGui::SliderInt("Highest Detail Cutoff", &settings.cutoffHighestDetail, 0, 30);
     ImGui::SliderInt("Second Detail Cutoff", &settings.cutoffSecondDetail, 0, 30);
     ImGui::SliderInt("Third Detail Cutoff", &settings.cutoffThirdDetail, 0, 30);
+    ImGui::SliderInt("Scatter Object Render Distance", &settings.scatterObjectRenderDistance, 0, 30);
 
     
     ImGui::Separator();

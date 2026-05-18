@@ -65,7 +65,7 @@ ScatterObject treeScatterObject(
     {0.5f, 2.0f}, // Scale
     0.0f, // Offset
     {TerrainType::gras, TerrainType::gras}, // Terrain range
-    64.0f, // Grid size
+    15.0f, // Grid size
     100, // Frequency
     "../Adv-project/models/Tree/Tree.obj" // .obj path
 ); 
@@ -218,6 +218,7 @@ void display()
     constexpr float terrainSquareSize = SQUARE_SIZE;
     const int cameraGridX = static_cast<int>(std::floor(cameraPosition.x / terrainSquareSize));
     const int cameraGridZ = static_cast<int>(std::floor(cameraPosition.z / terrainSquareSize));
+    const int scatterRenderDistance = std::min(guiSettings.scatterObjectRenderDistance, renderDistance);
 
     const ivec2 terrainCacheOriginGrid(cameraGridX - renderDistance, cameraGridZ - renderDistance);
     const vec3 terrainCacheOriginWorld = terrainLODMeshes[0].cacheOriginWorld(terrainCacheOriginGrid, sampleSquare.width);
@@ -295,7 +296,7 @@ void display()
     scatterRenderer->renderShadow(
         cameraGridX,
         cameraGridZ,
-        renderDistance,
+        scatterRenderDistance,
         terrainSquareSize,
         shaderUniforms,
         shadowProgram
@@ -372,7 +373,7 @@ void display()
     scatterRenderer->render(
         cameraGridX,
         cameraGridZ,
-        renderDistance,
+        scatterRenderDistance,
         terrainSquareSize,
         projection,
         view,
