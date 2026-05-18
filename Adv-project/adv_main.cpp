@@ -58,7 +58,6 @@ GLuint terrainCacheProgram = 0;
 
 // Terrain textures
 ShaderTextureHandles shaderTextures;
-TerrainTileMesh terrainTileMesh;
 
 // Scatter
 ScatterObject treeScatterObject(
@@ -73,6 +72,19 @@ ScatterObject treeScatterObject(
 std::vector<ScatterObject*> scatterObjects = { &treeScatterObject };
 ScatterObjectRenderer* scatterRenderer = nullptr;
 
+// LOD
+constexpr int terrainLODRes[] = { gridRes, gridRes/2, gridRes/4, gridRes/8 };
+constexpr int terrainLODCount = sizeof(terrainLODRes) / sizeof(terrainLODRes[0]);
+TerrainTileMesh terrainLODMeshes[terrainLODCount];
+
+int terrainLODForTile(int dx, int dz)
+{
+    int ring = std::max(std::abs(dx), std::abs(dz));
+    if (ring <= guiSettings.cutoffHighestDetail) return 0; // 128, 2 is the distance in tiles from the center tile, so ring 0 is the center tile
+    else if (ring <= guiSettings.cutoffSecondDetail) return 1; // 64
+    else if (ring <= guiSettings.cutoffThirdDetail) return 2; // 32
+    else return 3; // 16
+}
 
 // Lighting
 mat4 lightViewMatrix;
@@ -177,9 +189,12 @@ void initialize()
     // Use the night panorama as a star field on top of the procedural atmosphere.
     shaderTextures.starField = loadTexture("../Adv-project/textures/skyNightTime.png");
 
-    // Create the reusable tile geometry once, then let the shaders displace it.
-    terrainTileMesh.create(gridRes);
-    terrainTileMesh.createCache(terrainCacheResolution);
+    // Create reusable terrain tile meshes. LOD 0 also owns the terrain cache.
+    for (int i = 0; i < terrainLODCount; ++i)
+    {
+        terrainLODMeshes[i].create(terrainLODRes[i]);
+    }
+    terrainLODMeshes[0].createCache(terrainCacheResolution);
 
     // Create the Sun
     g_sunSphere = createSphereMesh(1.0f, 50, 50); // low res sphere for sun
@@ -205,20 +220,20 @@ void display()
     const int cameraGridZ = static_cast<int>(std::floor(cameraPosition.z / terrainSquareSize));
 
     const ivec2 terrainCacheOriginGrid(cameraGridX - renderDistance, cameraGridZ - renderDistance);
-    const vec3 terrainCacheOriginWorld = terrainTileMesh.cacheOriginWorld(terrainCacheOriginGrid, sampleSquare.width);
-    const float terrainVertexSpacing = terrainTileMesh.cacheVertexSpacing(sampleSquare.width);
+    const vec3 terrainCacheOriginWorld = terrainLODMeshes[0].cacheOriginWorld(terrainCacheOriginGrid, sampleSquare.width);
+    const float terrainVertexSpacing = terrainLODMeshes[0].cacheVertexSpacing(sampleSquare.width);
 
-    if (terrainTileMesh.cacheNeedsUpdate(terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed))
+    if (terrainLODMeshes[0].cacheNeedsUpdate(terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed))
     {
-        terrainTileMesh.updateCache(terrainCacheProgram, terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed);
+        terrainLODMeshes[0].updateCache(terrainCacheProgram, terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed);
     }
     shaderUniforms.setTerrainCache(
         terrainCacheOriginWorld,
         terrainVertexSpacing,
-        terrainTileMesh.cacheResolution(),
+        terrainLODMeshes[0].cacheResolution(),
         sampleSquare.height,
-        terrainTileMesh.heightTexture(),
-        terrainTileMesh.normalTexture()
+        terrainLODMeshes[0].heightTexture(),
+        terrainLODMeshes[0].normalTexture()
     );
 
     updateShadowMatrices(cameraGridX, cameraGridZ, terrainSquareSize, renderDistance, sampleSquare.height, lightDirWorld, lightViewMatrix, lightProjectionMatrix);
@@ -253,12 +268,11 @@ void display()
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(2.0f, 4.0f);
 
-    terrainTileMesh.bind();
-
     for (int dz = -renderDistance; dz <= renderDistance; ++dz)
     {
         for (int dx = -renderDistance; dx <= renderDistance; ++dx)
         {
+            const int lod = terrainLODForTile(dx, dz);
             const int gridX = cameraGridX + dx;
             const int gridZ = cameraGridZ + dz;
 
@@ -273,7 +287,8 @@ void display()
 
             labhelper::setUniformSlow(shadowProgram, "modelMatrix", tileModel);
 
-            terrainTileMesh.draw();
+            terrainLODMeshes[lod].bind();
+            terrainLODMeshes[lod].draw();
         }
     }
 
@@ -281,7 +296,7 @@ void display()
         cameraGridX,
         cameraGridZ,
         renderDistance,
-        float(terrainSquareSize),
+        terrainSquareSize,
         shaderUniforms,
         shadowProgram
     );
@@ -320,12 +335,11 @@ void display()
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
 
-    terrainTileMesh.bind();
-
     for (int dz = -renderDistance; dz <= renderDistance; ++dz)
     {
         for (int dx = -renderDistance; dx <= renderDistance; ++dx)
         {
+            const int lod = terrainLODForTile(dx, dz);
             const int gridX = cameraGridX + dx;
             const int gridZ = cameraGridZ + dz;
 
@@ -343,7 +357,8 @@ void display()
             labhelper::setUniformSlow(terrainShader, "modelMatrix", tileModel);
             labhelper::setUniformSlow(terrainShader, "modelViewProjectionMatrix", tileMvp);
 
-            terrainTileMesh.draw();
+            terrainLODMeshes[lod].bind();
+            terrainLODMeshes[lod].draw();
         }
     }
 
@@ -358,7 +373,7 @@ void display()
         cameraGridX,
         cameraGridZ,
         renderDistance,
-        float(terrainSquareSize),
+        terrainSquareSize,
         projection,
         view,
         shaderUniforms
