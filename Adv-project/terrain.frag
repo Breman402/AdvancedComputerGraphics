@@ -68,7 +68,6 @@ uniform vec3  point_light_color = vec3(1.0, 0.956, 0.839);
 uniform float point_light_intensity_multiplier = 1.0;
 
 uniform bool wireframeMode = false;
-uniform bool showTexture = true;
 
 #define PI 3.14159265359
 // ----------------------------------------------------------------------------
@@ -240,22 +239,12 @@ void main()
     float rockToSnow  = smoothstep(0.50 - blend, 0.50 + blend, h);
 
     vec3 base_color;
-    if (showTexture)
-    {
-        vec3 col = mix(water, sand, waterToSand);
-        col = mix(col, grass, sandToGrass);
-        col = mix(col, rock, grassToRock);
-        col = mix(col, snow, rockToSnow);
-        base_color = col;
-    }
-    else
-    {
-        vec3 colorTint = mix(waterMaterial.color, sandMaterial.color, waterToSand);
-        colorTint = mix(colorTint, grassMaterial.color, sandToGrass);
-        colorTint = mix(colorTint, rockMaterial.color, grassToRock);
-        colorTint = mix(colorTint, snowMaterial.color, rockToSnow);
-        base_color = colorTint;
-    }
+
+    vec3 col = mix(water, sand, waterToSand);
+    col = mix(col, grass, sandToGrass);
+    col = mix(col, rock, grassToRock);
+    col = mix(col, snow, rockToSnow);
+    base_color = col;
 
     float metalness = mix(waterMaterial.metalness, sandMaterial.metalness, waterToSand);
     metalness = mix(metalness, grassMaterial.metalness, sandToGrass);

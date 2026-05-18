@@ -95,8 +95,6 @@ constexpr float kBaseVisibleSunIntensity = 0.25f; //the minimum brightness of th
 GLuint shadowProgram = 0;
 ShadowMap shadowMap;
 
-bool showTexture = true;
-
 
 // A sample square with information later passed to the GPU
 TerrainSquare sampleSquare;
