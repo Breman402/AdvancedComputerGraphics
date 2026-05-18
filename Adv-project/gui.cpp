@@ -85,6 +85,14 @@ void gui(GUISettings& settings)
         markSettingsDirty();
 
     ImGui::Separator();
+    ImGui::Text("LOD:");
+    ImGui::SliderInt("Highest Detail Cutoff", &settings.cutoffHighestDetail, 0, 30);
+    ImGui::SliderInt("Second Detail Cutoff", &settings.cutoffSecondDetail, 0, 30);
+    ImGui::SliderInt("Third Detail Cutoff", &settings.cutoffThirdDetail, 0, 30);
+
+    
+    ImGui::Separator();
+
     if (ImGui::Checkbox("Wireframe Mode", &settings.wireframeMode))
         markSettingsDirty();
     ImGui::End();

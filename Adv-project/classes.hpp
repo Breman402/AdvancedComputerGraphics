@@ -450,6 +450,11 @@ public:
     float skyAmbientStrength = 0.18f;
     float aerialPerspectiveDensity = 0.0011f;
 
+    // LOD cuttoffs
+    int cutoffHighestDetail = 2;
+    int cutoffSecondDetail = 5;
+    int cutoffThirdDetail = 10;
+
     std::vector<Material*> materials = { &waterMaterial, &sandMaterial, &grassMaterial, &rockMaterial, &snowMaterial };
 
     Material waterMaterial{
