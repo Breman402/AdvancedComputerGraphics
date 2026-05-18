@@ -20,6 +20,7 @@
 #include "applicationIcon.hpp"
 #include "scatter.hpp"
 #include "shaderUniforms.hpp"
+#include "scatterObjects.hpp"
 
 #include "camera.hpp"
 #include "createShadow.hpp"
@@ -59,17 +60,7 @@ GLuint terrainCacheProgram = 0;
 // Terrain textures
 ShaderTextureHandles shaderTextures;
 
-// Scatter
-ScatterObject treeScatterObject(
-    "Tree", // Name
-    {0.5f, 2.0f}, // Scale
-    0.0f, // Offset
-    {TerrainType::gras, TerrainType::gras}, // Terrain range
-    15.0f, // Grid size
-    100, // Frequency
-    "../Adv-project/models/Tree/Tree.obj" // .obj path
-); 
-std::vector<ScatterObject*> scatterObjects = { &treeScatterObject };
+// Scatter Renderer
 ScatterObjectRenderer* scatterRenderer = nullptr;
 
 // LOD
