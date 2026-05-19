@@ -433,7 +433,7 @@ public:
     
     bool uploadGuard = false;
 
-    bool shadowsEnabled = false;
+    bool shadowsEnabled = true;
     int shadowMapSize = 4096;
     ShadowMap *shadowMap = nullptr; // Pointer to the shadow map, need this to update the shadow map when the size is changed
 
