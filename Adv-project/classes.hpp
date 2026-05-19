@@ -433,7 +433,7 @@ public:
     
     bool uploadGuard = false;
 
-    bool shadowsEnabled = false;
+    bool shadowsEnabled = true;
     int shadowMapSize = 4096;
     ShadowMap *shadowMap = nullptr; // Pointer to the shadow map, need this to update the shadow map when the size is changed
 
@@ -449,6 +449,12 @@ public:
     float atmosphereStarIntensity = 0.25f;
     float skyAmbientStrength = 0.18f;
     float aerialPerspectiveDensity = 0.0011f;
+
+    // LOD cuttoffs
+    int cutoffHighestDetail = 2;
+    int cutoffSecondDetail = 5;
+    int cutoffThirdDetail = 10;
+    int scatterObjectRenderDistance = 5;
 
     std::vector<Material*> materials = { &waterMaterial, &sandMaterial, &grassMaterial, &rockMaterial, &snowMaterial };
 
@@ -470,21 +476,21 @@ public:
         glm::vec3(0.1f, 0.6f, 0.1f), // color
         0.0f, // metalness
         0.0f, // fresnel
-        32.0f, // shininess
+        0.0f, // shininess
         glm::vec3(0.0f) // emission
     };
     Material rockMaterial{
         glm::vec3(0.5f, 0.5f, 0.5f), // color
         0.0f, // metalness
         0.0f, // fresnel
-        8.24f, // shininess
+        0.0f, // shininess
         glm::vec3(0.0f) // emission
     };
     Material snowMaterial{
         glm::vec3(0.9f, 0.9f, 0.9f), // color
         0.0f, // metalness
         0.369f, // fresnel
-        1.0f, // shininess
+        0.0f, // shininess
         glm::vec3(0.0f) // emission
     };
 

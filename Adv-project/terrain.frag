@@ -1,5 +1,4 @@
 #version 420 core
-precision highp float;
 
 struct Material
 {
@@ -21,9 +20,18 @@ layout(location = 0) out vec4 fragmentColor;
 // Terrain textures
 uniform sampler2D terrainWaterTex;
 uniform sampler2D terrainSandTex;
-uniform sampler2D terrainGrassTex;
-uniform sampler2D terrainRockTex;
-uniform sampler2D terrainSnowTex;
+uniform sampler2D terrainGrassTex0;
+uniform sampler2D terrainGrassTex1;
+uniform sampler2D terrainGrassTex2;
+uniform sampler2D terrainGrassTex3;
+uniform sampler2D terrainRockTex0;
+uniform sampler2D terrainRockTex1;
+uniform sampler2D terrainRockTex2;
+uniform sampler2D terrainRockTex3;
+uniform sampler2D terrainSnowTex0;
+uniform sampler2D terrainSnowTex1;
+uniform sampler2D terrainSnowTex2;
+uniform sampler2D terrainSnowTex3;
 
 // Terrain material properties
 uniform Material waterMaterial;
@@ -35,6 +43,9 @@ uniform Material snowMaterial;
 // Terrain Texture parameters
 uniform float terrainTextureScale;
 uniform float blend;
+const float grassBlendPatchScale = 0.045;
+const float rockBlendPatchScale = 0.035;
+const float snowBlendPatchScale = 0.030;
 
 uniform float tileHeight; // Maximum height for terrain tiling calculations
 
@@ -56,9 +67,109 @@ uniform vec3  point_light_color = vec3(1.0, 0.956, 0.839);
 uniform float point_light_intensity_multiplier = 1.0;
 
 uniform bool wireframeMode = false;
-uniform bool showTexture = true;
 
 #define PI 3.14159265359
+// ----------------------------------------------------------------------------
+// Hash and noise functions for procedural texture blending
+// ----------------------------------------------------------------------------
+float hash(vec2 p)
+{
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float valueNoise(vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(
+        mix(a, b, u.x),
+        mix(c, d, u.x),
+        u.y
+    );
+}
+// ----------------------------------------------------------------------------
+// Fractal Brownian Motion for more natural blending patterns
+// ----------------------------------------------------------------------------
+vec4 textureBlendWeights(vec2 worldXZ, float patchScale, vec2 seedOffset)
+{
+    vec2 p = worldXZ * patchScale + seedOffset;
+    vec4 weights = vec4(
+        valueNoise(p + vec2(0.0, 0.0)),
+        valueNoise(p + vec2(37.2, 11.8)),
+        valueNoise(p + vec2(83.4, 51.7)),
+        valueNoise(p + vec2(19.6, 94.3))
+    );
+
+    weights = pow(weights, vec4(4.0)) + vec4(0.02);
+    return weights / dot(weights, vec4(1.0));
+}
+
+vec4 monotonicHeightBias(float t)
+{
+    return vec4(
+        mix(1.6, 0.4, t),
+        mix(1.2, 0.8, t),
+        mix(0.8, 1.2, t),
+        mix(0.4, 1.6, t)
+    );
+}
+
+vec3 sampleGrass(vec2 tiledUV, vec2 worldXZ)
+{
+    vec4 weights = textureBlendWeights(worldXZ, grassBlendPatchScale, vec2(0.0, 0.0));
+    vec3 grass0 = texture(terrainGrassTex0, tiledUV).rgb;
+    vec3 grass1 = texture(terrainGrassTex1, tiledUV).rgb;
+    vec3 grass2 = texture(terrainGrassTex2, tiledUV).rgb;
+    vec3 grass3 = texture(terrainGrassTex3, tiledUV).rgb;
+
+    return grass0 * weights.x +
+           grass1 * weights.y +
+           grass2 * weights.z +
+           grass3 * weights.w;
+}
+
+vec3 sampleRock(vec2 tiledUV, vec2 worldXZ, float rockHeight01)
+{
+    vec4 weights = textureBlendWeights(worldXZ, rockBlendPatchScale, vec2(121.3, 48.9));
+    weights *= monotonicHeightBias(rockHeight01);
+    weights /= dot(weights, vec4(1.0));
+
+    vec3 rock0 = texture(terrainRockTex0, tiledUV).rgb;
+    vec3 rock1 = texture(terrainRockTex1, tiledUV).rgb;
+    vec3 rock2 = texture(terrainRockTex2, tiledUV).rgb;
+    vec3 rock3 = texture(terrainRockTex3, tiledUV).rgb;
+
+    return rock0 * weights.x +
+           rock1 * weights.y +
+           rock2 * weights.z +
+           rock3 * weights.w;
+}
+
+vec3 sampleSnow(vec2 tiledUV, vec2 worldXZ, float snowHeight01)
+{
+    vec4 weights = textureBlendWeights(worldXZ, snowBlendPatchScale, vec2(67.5, 173.2));
+    weights *= monotonicHeightBias(snowHeight01);
+    weights /= dot(weights, vec4(1.0));
+
+    vec3 snow0 = texture(terrainSnowTex0, tiledUV).rgb;
+    vec3 snow1 = texture(terrainSnowTex1, tiledUV).rgb;
+    vec3 snow2 = texture(terrainSnowTex2, tiledUV).rgb;
+    vec3 snow3 = texture(terrainSnowTex3, tiledUV).rgb;
+
+    return snow0 * weights.x +
+           snow1 * weights.y +
+           snow2 * weights.z +
+           snow3 * weights.w;
+}
+// ----------------------------------------------------------------------------
 
 vec3 calculateDirectIllumination(vec3 wo, vec3 n, vec3 base_color, Material mat)
 {
@@ -112,34 +223,27 @@ void main()
     float h = clamp(vHeight / tileHeight, 0.0, 1.0);
     vec2 tiledUV = vWorldPos.xz * terrainTextureScale;
 
+    float rockHeight01 = clamp((h - 0.25) / (0.50 - 0.25), 0.0, 1.0);
+    float snowHeight01 = clamp((h - 0.50) / (1.00 - 0.50), 0.0, 1.0);
+
     vec3 water = texture(terrainWaterTex, tiledUV).rgb;
     vec3 sand  = texture(terrainSandTex,  tiledUV).rgb;
-    vec3 grass = texture(terrainGrassTex, tiledUV).rgb;
-    vec3 rock  = texture(terrainRockTex,  tiledUV).rgb;
-    vec3 snow  = texture(terrainSnowTex,  tiledUV).rgb;
+    vec3 grass = sampleGrass(tiledUV, vWorldPos.xz); // Pick one of the grass textures
+    vec3 rock  = sampleRock(tiledUV, vWorldPos.xz, rockHeight01); // Pick one of the rock textures
+    vec3 snow  = sampleSnow(tiledUV, vWorldPos.xz, snowHeight01); // Pick one of the snow textures
 
     float waterToSand = smoothstep(0.03 - blend, 0.03 + blend, h);
     float sandToGrass = smoothstep(0.06 - blend, 0.06 + blend, h);
-    float grassToRock = smoothstep(0.30 - blend, 0.30 + blend, h);
+    float grassToRock = smoothstep(0.25 - blend, 0.25 + blend, h);
     float rockToSnow  = smoothstep(0.50 - blend, 0.50 + blend, h);
 
     vec3 base_color;
-    if (showTexture)
-    {
-        vec3 col = mix(water, sand, waterToSand);
-        col = mix(col, grass, sandToGrass);
-        col = mix(col, rock, grassToRock);
-        col = mix(col, snow, rockToSnow);
-        base_color = col;
-    }
-    else
-    {
-        vec3 colorTint = mix(waterMaterial.color, sandMaterial.color, waterToSand);
-        colorTint = mix(colorTint, grassMaterial.color, sandToGrass);
-        colorTint = mix(colorTint, rockMaterial.color, grassToRock);
-        colorTint = mix(colorTint, snowMaterial.color, rockToSnow);
-        base_color = colorTint;
-    }
+
+    vec3 col = mix(water, sand, waterToSand);
+    col = mix(col, grass, sandToGrass);
+    col = mix(col, rock, grassToRock);
+    col = mix(col, snow, rockToSnow);
+    base_color = col;
 
     float metalness = mix(waterMaterial.metalness, sandMaterial.metalness, waterToSand);
     metalness = mix(metalness, grassMaterial.metalness, sandToGrass);
