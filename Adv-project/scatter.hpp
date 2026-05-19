@@ -1,3 +1,4 @@
+#pragma once
 #include <string>
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
@@ -10,6 +11,7 @@
 #include <vector>
 #include <labhelper.h>
 #include <Model.h>
+#include "shaderUniforms.hpp"
 
 enum class TerrainType
 {
@@ -177,7 +179,9 @@ class ScatterObject
 class ScatterObjectRenderer
 {
     public:
-    ScatterObjectRenderer(const vector<ScatterObject*>& scatterObjects, const string& vertShaderPath, const string& fragShaderPath){
+    ScatterObjectRenderer(const vector<ScatterObject*>& scatterObjects,
+                          const string& vertShaderPath,
+                          const string& fragShaderPath){
         this->renderer = labhelper::loadShaderProgram(vertShaderPath, fragShaderPath);
         this->scatterObjects = scatterObjects;
         glGenBuffers(1, &instanceVbo);
@@ -195,25 +199,16 @@ class ScatterObjectRenderer
         const float width,
         const glm::mat4& projection,
         const glm::mat4& view,
-        const GLuint terrainHeightTexture,
-        const int terrainHeightTexUnit,
-        const glm::vec3& terrainCacheOriginWorld,
-        const float terrainVertexSpacing,
-        const int terrainCacheResolution,
-        const float tileHeight)
+        const ShaderUniforms& shaderUniforms)
     {
         glUseProgram(renderer);
 
-        glActiveTexture(GL_TEXTURE0 + terrainHeightTexUnit);
-        glBindTexture(GL_TEXTURE_2D, terrainHeightTexture);
+        shaderUniforms.bindTerrainHeightTexture();
+        shaderUniforms.bindShadowTexture();
 
         labhelper::setUniformSlow(renderer, "viewProjectionMatrix", projection * view);
-        labhelper::setUniformSlow(renderer, "terrainHeightTex", terrainHeightTexUnit);
-        labhelper::setUniformSlow(renderer, "terrainCacheOriginWorld", terrainCacheOriginWorld);
-        labhelper::setUniformSlow(renderer, "terrainVertexSpacing", terrainVertexSpacing);
-        labhelper::setUniformSlow(renderer, "terrainCacheResolution", terrainCacheResolution);
-        labhelper::setUniformSlow(renderer, "tileHeight", tileHeight);
-        labhelper::setUniformSlow(renderer, "color_texture", 0);
+        shaderUniforms.uploadScatterTerrain(renderer);
+        shaderUniforms.uploadScatterFrame(renderer);
 
         for (ScatterObject* scatterObject : scatterObjects)
         {
@@ -253,6 +248,58 @@ class ScatterObjectRenderer
             }
         }
 
+    }
+
+    void renderShadow(
+        const int cameraGridX,
+        const int cameraGridZ,
+        const int renderDistance,
+        const float width,
+        const ShaderUniforms& shaderUniforms,
+        const GLuint shadowProgram)
+    {
+        glUseProgram(shadowProgram);
+
+        shaderUniforms.bindTerrainHeightTexture();
+        shaderUniforms.uploadScatterShadow(shadowProgram);
+
+        for (ScatterObject* scatterObject : scatterObjects)
+        {
+            scatterObject->updateInstances(cameraGridX, cameraGridZ, renderDistance, width);
+            const vector<ScatterInstance>& objInstances = scatterObject->getInstances();
+            const labhelper::Model* objectModel = scatterObject->getModel();
+            if (objectModel == nullptr)
+            {
+                continue;
+            }
+
+            const pair<TerrainType, TerrainType>& terrainRange = scatterObject->getTerrainRange();
+            float minTerrainHeight01 = terrainTypeLowerBound(terrainRange.first);
+            float maxTerrainHeight01 = terrainTypeUpperBound(terrainRange.second);
+            if (minTerrainHeight01 > maxTerrainHeight01)
+            {
+                const float temp = minTerrainHeight01;
+                minTerrainHeight01 = terrainTypeLowerBound(terrainRange.second);
+                maxTerrainHeight01 = terrainTypeUpperBound(terrainRange.first);
+            }
+
+            labhelper::setUniformSlow(shadowProgram, "minTerrainHeight01", minTerrainHeight01);
+            labhelper::setUniformSlow(shadowProgram, "maxTerrainHeight01", maxTerrainHeight01);
+            labhelper::setUniformSlow(shadowProgram, "heightOffset", scatterObject->getOffset());
+
+            for (const ScatterInstance& instance : objInstances)
+            {
+                const glm::vec3 instancePosition(instance.worldPos.x, 0.0f, instance.worldPos.y);
+                const glm::mat4 modelMatrix =
+                    glm::translate(glm::mat4(1.0f), instancePosition) *
+                    glm::rotate(glm::mat4(1.0f), instance.rotation, glm::vec3(0.0f, 1.0f, 0.0f)) *
+                    glm::scale(glm::mat4(1.0f), glm::vec3(instance.scale));
+
+                labhelper::setUniformSlow(shadowProgram, "modelMatrix", modelMatrix);
+
+                labhelper::render(objectModel);
+            }
+        }
     }
     
     private:
