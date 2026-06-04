@@ -14,25 +14,38 @@ uniform int tileSeed;
 // -----------------------------------------------------------------------------
 float hash(vec2 p)
 {
+    // This is to ensure that different tiles have different noise patterns, otherwise the terrain would look very repetitive.
     p += vec2(float(tileSeed) * 0.1234, float(tileSeed) * 0.5678);
+    // A common hash function for 2D coordinates, it produces a pseudo-random value based on the input coordinates.
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
 
 // -----------------------------------------------------------------------------
 // Smooth value noise
+// 
+// Procedural noise function for the terrain.
+// Find the grid cell containing p. Compute the noise value at the corners of the cell.
+// Smoothly interpolate between those corner values.
+// Return one smooth random-looking value.
 // -----------------------------------------------------------------------------
 float valueNoise(vec2 p)
 {
+    // Integer grid coordinate of the cell containing p.
     vec2 i = floor(p);
+    // Local position inside the cell, in the range [0, 1) for each axis.
     vec2 f = fract(p);
 
+    // Deterministic pseudo-random values at the four corners of the cell.
     float a = hash(i);
     float b = hash(i + vec2(1.0, 0.0));
     float c = hash(i + vec2(0.0, 1.0));
     float d = hash(i + vec2(1.0, 1.0));
 
+    // Smoothstep curve for softer transitions across cell boundaries.
     vec2 u = f * f * (3.0 - 2.0 * f);
 
+    // Bilinear interpolation: blend along x on the bottom and top edges, then
+    // blend those two results along y.
     return mix(
         mix(a, b, u.x),
         mix(c, d, u.x),
@@ -47,6 +60,13 @@ float valueNoise(vec2 p)
 // to get some base height and then use that to have diffrent levels of 
 // detail for the diffrent terrain heights, like you'd expect to see more detail
 // in the rocks and snow than the sand.
+//
+// FBM combines layers of noise at different frequencies and amplitudes to create
+// more complex and natural-looking patterns. Each layer is called an "octave". 
+// The frequency determines how quickly the noise changes across space, 
+// while the amplitude controls how much influence that octave has on the final result.
+// By summing multiple octaves, you can create terrain with a wide range of features, 
+// from large hills to small bumps.
 // -----------------------------------------------------------------------------
 float fbm(vec2 p)
 {
@@ -90,8 +110,6 @@ float fbmCustom(vec2 p, float startFreq, float freqMul, float startAmp, float am
 
 // -----------------------------------------------------------------------------
 // Terrain height
-// heightScale = user multiplier
-// tileHeight  = hard max
 // -----------------------------------------------------------------------------
 float getTerrainHeight(vec2 worldXZ)
 {
@@ -129,7 +147,7 @@ void main()
 
     vec3 worldPos = vec3(worldXZ.x, height, worldXZ.y);
 
-    vec3 dx = dFdx(worldPos);
+    vec3 dx = dFdx(worldPos); // dFdx and dFdy give us the rate of change of the world position in screen space, which we can use to compute the normal.
     vec3 dz = dFdy(worldPos);
     vec3 worldNormal = normalize(cross(dz, dx));
 

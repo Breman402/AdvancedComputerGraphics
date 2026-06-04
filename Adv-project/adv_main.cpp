@@ -68,7 +68,7 @@ constexpr int terrainLODRes[] = { gridRes, gridRes/2, gridRes/4, gridRes/8 };
 constexpr int terrainLODCount = sizeof(terrainLODRes) / sizeof(terrainLODRes[0]);
 TerrainTileMesh terrainLODMeshes[terrainLODCount];
 
-int terrainLODForTile(int dx, int dz)
+int terrainLODForTile(int dx, int dz) // dx is the distance in tiles from the camera in the x direction, dz is the same for the z direction.
 {
     int ring = std::max(std::abs(dx), std::abs(dz));
     if (ring <= guiSettings.cutoffHighestDetail) return 0; // 128, 2 is the distance in tiles from the center tile, so ring 0 is the center tile
@@ -89,7 +89,7 @@ SphereMesh g_sunSphere;
 // Atmosphere related Globals
 GLuint atmosphereProgram = 0;
 SphereMesh g_atmosphereSphere;
-SunLightingState sunLighting;
+SunLightingState sunLighting; // Struct for all relevant information about the sun's lighting
 constexpr float kBaseSkySunIntensity = 0.35f; // The minimum solar energy sent into the atmosphere
 constexpr float kReferenceLightIntensity = 5.3f; // Used to normalize the slider
 constexpr float kBaseVisibleSunIntensity = 0.25f; //the minimum brightness of the visible sun disc before we apply intensity scaling and the horizon visibility fade.
@@ -113,14 +113,14 @@ void initialize()
     }
 
     // OpenGL settings
-    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST); // Hides things that are hidden behind other things.
     glEnable(GL_CULL_FACE);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // black background
 
     lightViewMatrix = mat4(1.0f);
     lightProjectionMatrix = mat4(1.0f);
     lightDirWorld = normalize(glm::vec3(-0.4f, -1.0f, -0.3f));
-    syncSunCycleFromLightDirection(lightDirWorld, guiSettings.sunTimeOfDayAngle);
+    syncSunCycleFromLightDirection(lightDirWorld, guiSettings.sunTimeOfDayAngle); // Light direction to sun cycle angle
 
     // This is just for setting an icon for the application window.
     setApplicationIcon(g_window, "../Adv-project/icons/earthIcon.bmp");
@@ -209,12 +209,14 @@ void display()
     constexpr float terrainSquareSize = SQUARE_SIZE;
     const int cameraGridX = static_cast<int>(std::floor(cameraPosition.x / terrainSquareSize));
     const int cameraGridZ = static_cast<int>(std::floor(cameraPosition.z / terrainSquareSize));
-    const int scatterRenderDistance = std::min(guiSettings.scatterObjectRenderDistance, renderDistance);
+    const int scatterRenderDistance = guiSettings.scatterObjectRenderDistance;
 
     const ivec2 terrainCacheOriginGrid(cameraGridX - renderDistance, cameraGridZ - renderDistance);
     const vec3 terrainCacheOriginWorld = terrainLODMeshes[0].cacheOriginWorld(terrainCacheOriginGrid, sampleSquare.width);
     const float terrainVertexSpacing = terrainLODMeshes[0].cacheVertexSpacing(sampleSquare.width);
 
+    // This if statement will be triggered whenever the camera has moved at least one terrain vertex spacing away from the center of the current terrain cache, which means we need to update the cache to the new area around the camera. 
+    // This is done to ensure that the terrain cache always contains the area around the camera and there's no visual pop in of terrain geometry when the camera moves.
     if (terrainLODMeshes[0].cacheNeedsUpdate(terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed))
     {
         terrainLODMeshes[0].updateCache(terrainCacheProgram, terrainCacheOriginGrid, guiSettings.heightMapScale, sampleSquare.width, sampleSquare.height, terrainTileSeed);
@@ -228,6 +230,7 @@ void display()
         terrainLODMeshes[0].normalTexture()
     );
 
+    // Update the shadow map matrices based on the current camera position and light direction
     updateShadowMatrices(cameraGridX, cameraGridZ, terrainSquareSize, renderDistance, sampleSquare.height, lightDirWorld, lightViewMatrix, lightProjectionMatrix);
 
     // ---- Camera ----
@@ -246,7 +249,7 @@ void display()
     // ------------------------------------------------------------------------
     // Shadow pass
     // ------------------------------------------------------------------------
-    glViewport(0, 0, shadowMap.width, shadowMap.height);
+    glViewport(0, 0, shadowMap.width, shadowMap.height); // Render to the shadow map
 
     glBindFramebuffer(GL_FRAMEBUFFER, shadowMap.fbo);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -255,11 +258,12 @@ void display()
 
     shaderUniforms.uploadShadowTerrain(shadowProgram);
     shaderUniforms.bindTerrainHeightTexture();
-    labhelper::setUniformSlow(shadowProgram, "scatterShadowMode", false);
+    labhelper::setUniformSlow(shadowProgram, "scatterShadowMode", false); // This is so that I do not need two shadow shader programs.
     
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(2.0f, 4.0f);
+    glPolygonOffset(2.0f, 4.0f); // Help with z-fighting issues in the shadow map.
 
+    // Render the terrain from the light's perspective to populate the shadow map.
     for (int dz = -renderDistance; dz <= renderDistance; ++dz)
     {
         for (int dx = -renderDistance; dx <= renderDistance; ++dx)
@@ -308,12 +312,11 @@ void display()
     glViewport(0, 0, w, h);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glUseProgram(terrainShader);
-
-    shaderUniforms.bindTerrainMaterialTextures(shaderTextures);
+    glUseProgram(terrainShader); 
 
     if (!guiSettings.uploadGuard)
     {
+        shaderUniforms.bindTerrainMaterialTextures(shaderTextures); // No real way to update these, just want them in the guard
         shaderUniforms.uploadTerrainStatic(terrainShader);
         guiSettings.uploadGuard = true;
     }
@@ -327,6 +330,7 @@ void display()
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
 
+    // Render the terrain tiles around the camera with the appropriate LOD based on distance.
     for (int dz = -renderDistance; dz <= renderDistance; ++dz)
     {
         for (int dx = -renderDistance; dx <= renderDistance; ++dx)
@@ -358,6 +362,7 @@ void display()
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
+
     // ------------------------------------------------------------------------
     // Render all scatter objects
     // ------------------------------------------------------------------------
@@ -379,7 +384,7 @@ void display()
     vec3 atmospherePosWorld = cameraPosition;
 
     mat4 atmosphereModel(1.0f);
-    atmosphereModel = translate(atmosphereModel, atmospherePosWorld);
+    atmosphereModel = translate(atmosphereModel, atmospherePosWorld); // The atmosphere is always centered on the camera
 
     mat4 atmosphereMvp = projection * view * atmosphereModel;
     labhelper::setUniformSlow(atmosphereProgram, "mvpMatrix", atmosphereMvp);
