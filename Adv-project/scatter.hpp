@@ -80,9 +80,14 @@ class ScatterObject
         }
     }
 
-    vector<ScatterInstance> generateInstances(int centerGridX, int centerGridZ, int renderDistance, float terrainSquareSize){
+    vector<ScatterInstance> generateInstances(const int centerGridX, const int centerGridZ, const int renderDistance, const float terrainSquareSize){
         vector<ScatterInstance> instances;
 
+        // This is a whacky quick fix to save on computing, just return old value if camera has not moved:
+        if (centerGridX == lastCenterX && centerGridZ == lastCenterZ)
+        {
+            return lastInstances;
+        }
         const float minWorldX = float(centerGridX - renderDistance) * terrainSquareSize;
         const float maxWorldX = float(centerGridX + renderDistance + 1) * terrainSquareSize;
         const float minWorldZ = float(centerGridZ - renderDistance) * terrainSquareSize;
@@ -122,6 +127,9 @@ class ScatterObject
             }
         }
 
+        lastCenterX = centerGridX;
+        lastCenterZ = centerGridZ;
+        lastInstances = instances;
         return instances;
 
     }
@@ -174,6 +182,9 @@ class ScatterObject
     vector<ScatterInstance> instances;
     int seed = 1337; // This should be unique per scatter object type so different objects do not share identical placements.
     labhelper::Model* model = nullptr;
+    int lastCenterX;
+    int lastCenterZ;
+    vector<ScatterInstance> lastInstances;
 };
 
 class ScatterObjectRenderer
@@ -215,10 +226,6 @@ class ScatterObjectRenderer
             scatterObject->updateInstances(cameraGridX, cameraGridZ, renderDistance, width);
             const vector<ScatterInstance>& objInstances = scatterObject->getInstances();
             const labhelper::Model* objectModel = scatterObject->getModel();
-            if (objectModel == nullptr)
-            {
-                continue;
-            }
 
             const pair<TerrainType, TerrainType>& terrainRange = scatterObject->getTerrainRange();
             float minTerrainHeight01 = terrainTypeLowerBound(terrainRange.first);
@@ -240,11 +247,14 @@ class ScatterObjectRenderer
                 const glm::mat4 modelMatrix =
                     glm::translate(glm::mat4(1.0f), instancePosition) *
                     glm::rotate(glm::mat4(1.0f), instance.rotation, glm::vec3(0.0f, 1.0f, 0.0f)) *
-                    glm::scale(glm::mat4(1.0f), glm::vec3(instance.scale));
+                    glm::scale(glm::mat4(1.0f), glm::vec3(instance.scale)); // Model space to world space
 
                 labhelper::setUniformSlow(renderer, "modelMatrix", modelMatrix);
 
-                labhelper::render(objectModel);
+                // I did not make this, and I suspect it is not very efficient for rendering many instances
+                // It currently submits a draw call for every instance, but ideally it should be using instanced rendering to submit all instances of the same model in one draw call.
+                // However, that would require changing the shader and how the instance data is passed to it, so I will leave it like this for now.
+                labhelper::render(objectModel); // Submits the model meshes with the currently set model matrix and shader
             }
         }
 
@@ -268,10 +278,6 @@ class ScatterObjectRenderer
             scatterObject->updateInstances(cameraGridX, cameraGridZ, renderDistance, width);
             const vector<ScatterInstance>& objInstances = scatterObject->getInstances();
             const labhelper::Model* objectModel = scatterObject->getModel();
-            if (objectModel == nullptr)
-            {
-                continue;
-            }
 
             const pair<TerrainType, TerrainType>& terrainRange = scatterObject->getTerrainRange();
             float minTerrainHeight01 = terrainTypeLowerBound(terrainRange.first);
@@ -293,7 +299,7 @@ class ScatterObjectRenderer
                 const glm::mat4 modelMatrix =
                     glm::translate(glm::mat4(1.0f), instancePosition) *
                     glm::rotate(glm::mat4(1.0f), instance.rotation, glm::vec3(0.0f, 1.0f, 0.0f)) *
-                    glm::scale(glm::mat4(1.0f), glm::vec3(instance.scale));
+                    glm::scale(glm::mat4(1.0f), glm::vec3(instance.scale)); // Model space to world space
 
                 labhelper::setUniformSlow(shadowProgram, "modelMatrix", modelMatrix);
 

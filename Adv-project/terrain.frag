@@ -96,7 +96,7 @@ float valueNoise(vec2 p)
     );
 }
 // ----------------------------------------------------------------------------
-// Fractal Brownian Motion for more natural blending patterns
+/// Procedural noise weights for more natural texture blending patterns
 // ----------------------------------------------------------------------------
 vec4 textureBlendWeights(vec2 worldXZ, float patchScale, vec2 seedOffset)
 {
@@ -221,9 +221,9 @@ void main()
     vec3 n  = normalize(vWorldNormal);
 
     float h = clamp(vHeight / tileHeight, 0.0, 1.0);
-    vec2 tiledUV = vWorldPos.xz * terrainTextureScale;
+    vec2 tiledUV = vWorldPos.xz * terrainTextureScale; // World position scaled for texturing
 
-    float rockHeight01 = clamp((h - 0.25) / (0.50 - 0.25), 0.0, 1.0);
+    float rockHeight01 = clamp((h - 0.25) / (0.50 - 0.25), 0.0, 1.0); // Normalized height for rock texture blending
     float snowHeight01 = clamp((h - 0.50) / (1.00 - 0.50), 0.0, 1.0);
 
     vec3 water = texture(terrainWaterTex, tiledUV).rgb;
@@ -232,7 +232,7 @@ void main()
     vec3 rock  = sampleRock(tiledUV, vWorldPos.xz, rockHeight01); // Pick one of the rock textures
     vec3 snow  = sampleSnow(tiledUV, vWorldPos.xz, snowHeight01); // Pick one of the snow textures
 
-    float waterToSand = smoothstep(0.03 - blend, 0.03 + blend, h);
+    float waterToSand = smoothstep(0.03 - blend, 0.03 + blend, h); // Blend factor for water to sand transition
     float sandToGrass = smoothstep(0.06 - blend, 0.06 + blend, h);
     float grassToRock = smoothstep(0.25 - blend, 0.25 + blend, h);
     float rockToSnow  = smoothstep(0.50 - blend, 0.50 + blend, h);
